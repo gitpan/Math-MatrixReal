@@ -15,7 +15,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '1.8';
+$VERSION = '1.9';
 
 use overload
      'neg' => '_negate',
@@ -737,7 +737,8 @@ sub norm_p {
 	# sanity check on $p	
 	croak "Math::MatrixReal:norm_p: argument must be a row or column vector"
 		unless ( $v->is_row_vector || $v->is_col_vector );
-	croak "Math::MatrixReal::norm_p: $p must be >= 1" unless ($p >= 1);
+	croak "Math::MatrixReal::norm_p: $p must be >= 1" 
+		unless ($p =~ m/Inf(inity)?/i || $p >= 1);
 
 	if( $p =~ m/^(Inf|Infinity)$/i ){
 		my $max = $v->element(1,1);
@@ -2618,8 +2619,34 @@ sub as_matlab {
 	$s .= "]";
 	$s .= ";" if $args{semi};
 	return $s;
-	
+}
+#TODO: docs+test
+sub as_yacas{
+	my ($m) = shift;
+        my %args = (
+                format => "%s",
+                name => "",
+                semi => 0,
+                @_);
+	my ($row,$col) = $m->dim;
+        my $s = "";
 
+        if( $args{name} ){
+                $s = "$args{name} := ";
+        }
+        $s .= "{";
+
+	$m->each(
+                sub { my($x,$i,$j) = @_;
+			$s .= "{" if ($j == 1);
+                        $s .= sprintf("$args{format}",$x);
+                        $s .= "," if( $j != $col );
+			$s .= "}," if ($j == $col && $i != $row);
+		}
+	);
+	$s .= "}}";
+
+	return $s;
 }
 #TODO: any ideas for a good test?
 sub as_latex{
@@ -4239,6 +4266,27 @@ Output:
 
 =item *
 
+C<$yacas_string = $matrix-E<gt>as_yacas( format =E<gt> "%s", name =E<gt> "", semi =E<gt> 0 );>
+
+This function returns the matrix as a string that can be read by Yacas.
+It takes a hash as
+an an argument which controls the style of the output. The
+C<format> element is a format string that is given to C<sprintf> to control the
+style of number format, such a floating point or scientific notation. The C<name>
+element can be used so that "$name = " is prepended to the string. The <semi> element can
+be set to 1 to that a semicolon is appended (so Matlab does not print out the matrix.) 
+
+Example:
+
+	$a = Math::MatrixReal->new_from_cols([[ 1.234, 5.678, 9.1011],[1,2,3]] );
+	print $a->as_yacas( ( format => "%.2f", align => "l",name => "A" ) );
+
+Output:
+
+	A := {{1.23,1.00},{5.68,2.00},{9.10,3.00}}
+
+=item *
+
 C<$matlab_string = $matrix-E<gt>as_matlab( format =E<gt> "%s", name =E<gt> "", semi =E<gt> 0 );>
 
 This function returns the matrix as a string that can be read by Matlab. It takes a hash as
@@ -5283,7 +5331,7 @@ Set::IntegerRange, Set::IntegerFast .
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.8.
+This man page documents Math::MatrixReal version 1.9.
 
 The latest version can always be found at
 http://leto.net/code/Math-MatrixReal/

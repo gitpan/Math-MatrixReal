@@ -50,3 +50,4 @@ t/trace.t
 t/transpose.t
 t/triang.t
 t/vecnorm.t
+t/yacas.t

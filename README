@@ -1,4 +1,4 @@
-Math::MatrixReal v1.7
+Math::MatrixReal v1.9
 http://leto.net/code/Math-MatrixReal/
 
 Contents of this file:
@@ -19,7 +19,7 @@ Legal stuff:
 
 Copyright (c) 1996, 1997 by Steffen Beyer.
               1999 by Rodolphe Ortalo.
-	      2001 by Jonathan Leto.
+	      2001-2002 by Jonathan Leto.
 All rights reserved.
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.

@@ -13,7 +13,10 @@ $matrix = Math::MatrixReal->new_from_string(<<"MATRIX");
 [ -2 2 -1 ]
 MATRIX
 
+#print $matrix->as_yacas;
+
 $matrix = $matrix->each( sub { (shift)/3; } );
+
 ok(2, $matrix->is_orthogonal );
 ok(3, ($matrix**2)->is_orthogonal );
 ok(4, (~$matrix)->is_orthogonal );

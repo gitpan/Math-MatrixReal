@@ -1,3 +1,11 @@
+Changes in v1.9 - leto
+Wed May 15 03:19:34 EST 2002 
+----------------------------
+	* as_yacas() function added
+	* t/yacas.t created
+	* Fixed issue with infinity norm and Irix, thanks to 
+	  Allen Smith <easmith@beatrice.rutgers.edu> and the CPAN testers
+
 Changes in v1.8 -- leto
 Sat Mar 23 00:13:48 EST 2002 
 ----------------------------

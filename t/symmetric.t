@@ -22,6 +22,7 @@ $matrix = Math::MatrixReal->new_from_string(<<"MATRIX");
 [ 0 0 0 4 0 ]
 [ 1 0 0 0 5 ]
 MATRIX
+
 ok(3, ! $matrix->is_symmetric() );
 #############################
 $matrix = Math::MatrixReal->new_from_string(<<MATRIX);
