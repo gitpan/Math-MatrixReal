@@ -15,7 +15,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '1.4';
+$VERSION = '1.5';
 
 use overload
      'neg' => '_negate',
@@ -4847,7 +4847,7 @@ Set::IntegerRange(3), Set::IntegerFast(3).
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.4.
+This man page documents Math::MatrixReal version 1.5.
 
 The latest version can always be found at
 http://leto.net/code/Math-MatrixReal/

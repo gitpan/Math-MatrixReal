@@ -29,7 +29,7 @@ sub ok_matrix ($$$)
   my $tmp = $M1->shadow();
   $tmp->subtract($M1,$M2);
   my $v = $tmp->norm_one();
-  ok($no, ($v < 1e-10));
+  ok($no, ($v < 1e-8));
   print " ($no: |Delta| = $v)\n" if $DEBUG;
 }
 
@@ -42,7 +42,7 @@ sub ok_matrix_orthogonal ($$)
   $transp->transpose($M);
   $tmp->subtract($M->multiply($transp), $tmp);
   my $v = $tmp->norm_one();
-  ok($no, ($v < 1e-10));
+  ok($no, ($v < 1e-8));
   print " ($no: |M * ~M - I| = $v)\n" if $DEBUG;
 }
 

@@ -1,5 +1,16 @@
+Changes in v1.5 -- leto
+Sat Jan 12 04:20:48 EST 2002 
+-------------------------
+	* t/inverse.t test 6 was numerically instable, commented out
+		I ran it 10000 times and got values from 1e-2 to 1e-16,
+		this caused the test to randomly fail, because it checked
+		that the value was less than 1e-10
+		I did not notice this problem because my default perl install
+		has USE_LONG_DOUBLE
+	* changed epsilon to be 1e-8 in funcs.pl ( was 1e-10)
 
 Changes in v1.4 -- leto
+Jan 10 2002
 --------------------------
 	* Steffen Beyer gave maintainer-ship to Jonathan Leto
 	* exponent() function added
