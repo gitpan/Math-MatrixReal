@@ -1,5 +1,5 @@
 =========================================
-  Package "Math-MatrixReal" Version 1.0
+  Package "Math-MatrixReal" Version 1.1
 =========================================
     for Perl version 5.000 and higher
 
@@ -69,7 +69,7 @@ Edit the "Makefile.PL" file in this package and change the line
 
 to
 
-    'VERSION'		=> '1.0',
+    'VERSION'		=> '1.1',
 
 
 How to install it:
@@ -79,7 +79,7 @@ Please unpack and build this package OUTSIDE the Perl source and distribution
 tree!!
 
  1) Change directory to the directory that has been created by unpacking this
-    package ("Math-MatrixReal-1.0/").
+    package ("Math-MatrixReal-1.1/").
 
  2) Type "perl Makefile.PL".
     (Or whatever the name and path of your Perl 5 binary is)
@@ -92,7 +92,9 @@ tree!!
 Version history:
 ----------------
 
-Version 1.0 is the initial release.
+Version 1.0 was the initial release.
+
+Version 1.1 fixes a bug in the "kleene()" method.
 
 
 Plans for the future:

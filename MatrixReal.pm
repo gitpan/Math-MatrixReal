@@ -18,7 +18,7 @@ require Exporter;
 
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
-$VERSION = '1.0';
+$VERSION = '1.1';
 
 use Carp;
 
@@ -591,6 +591,10 @@ sub kleene
     $temp->copy($matrix);
     $temp->_undo_LR();
     $n = $rows;
+    for ( $i = 0; $i < $n; $i++ )
+    {
+        $temp->[0][$i][$i] = min( $temp->[0][$i][$i] , 0 );
+    }
     for ( $k = 0; $k < $n; $k++ )
     {
         for ( $i = 0; $i < $n; $i++ )
@@ -3171,7 +3175,7 @@ Set::IntegerRange(3), Set::IntegerFast(3).
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.0.
+This man page documents Math::MatrixReal version 1.1.
 
 =head1 AUTHOR
 
