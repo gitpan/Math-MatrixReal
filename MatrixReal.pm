@@ -15,7 +15,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '1.7';
+$VERSION = '1.8';
 
 use overload
      'neg' => '_negate',
@@ -722,7 +722,34 @@ sub norm_sum {
 	$matrix->each( sub { $norm+=abs(shift);	} );
 	return $norm;
 }
+sub norm_frobenius {
+	my ($m) = @_;
+	my ($r,$c) = $m->dim;
+	my $s=0;
 
+	$m->each( sub { $s+=abs(shift)**2 } );
+	return sqrt($s);
+}
+
+# Vector Norm 
+sub norm_p {
+	my ($v,$p) = @_;
+	# sanity check on $p	
+	croak "Math::MatrixReal:norm_p: argument must be a row or column vector"
+		unless ( $v->is_row_vector || $v->is_col_vector );
+	croak "Math::MatrixReal::norm_p: $p must be >= 1" unless ($p >= 1);
+
+	if( $p =~ m/^(Inf|Infinity)$/i ){
+		my $max = $v->element(1,1);
+		$v->each ( sub { my $x=abs(shift); $max = $x if( $x > $max ); } );
+		return $max;
+	}
+
+	my $s=0;
+	$v->each( sub { $s+= (abs(shift))**$p; } );
+	return $s ** (1/$p);
+
+}
 sub norm_max  #  maximum of sums of each row
 {
     croak "Usage: \$norm_max = \$matrix->norm_max();"
@@ -2269,7 +2296,6 @@ sub tri_eigenvalues ($;$)
     unless ($rows = $cols);
   croak "Matrix is not tridiagonal"
 	unless ($T->is_tridiagonal() ); # DONE
-        #unless ($T->is_symmetric()); # TODO: Do real tridiag check (not symmetric)!
 
   # Allocates diagonal vector
   my $diag = [ ];
@@ -2355,6 +2381,27 @@ sub sym_eigenvalues ($)
     }
     return $val;
 }
+#TODO: docs+test
+sub is_positive_definite {
+        my ($matrix) = @_;
+        my ($r,$c) = $matrix->dim;
+        my $ev = $matrix->eigenvalues;
+	my $pos = 1;
+        $ev->each(sub { my $x = shift; if ($x <= 0){ $pos=0;return; } } );
+        return $pos;
+}
+
+sub is_row_vector {
+	my ($m) = @_;
+	my ($r,$c) = $m->dim;
+	return 1 if ($r == 1);
+}
+sub is_col_vector {
+        my ($m) = @_;
+        my ($r,$c) = $m->dim;
+        return 1 if ($c == 1);
+}
+
 sub is_orthogonal($) {
 	my ($matrix) = @_;
 	##croak "Math::MatrixReal::is_orthogonal(): Matrix is not quadratic"
@@ -2367,7 +2414,7 @@ sub is_orthogonal($) {
 	abs(~$matrix * $matrix - $one) < 1e-12 ? return 1 : return 0;
 
 }
-#TODO: docs
+
 sub is_positive($) {
 	my ($m) = @_;
 	my $pos = 1;
@@ -2544,8 +2591,37 @@ sub is_binary{
         return 1;
 
 }
+sub as_scilab {
+	return (shift)->as_matlab;
+}
+
+sub as_matlab {
+	my ($m) = shift;
+        my %args = ( 
+                format => "%s",
+                name => "",
+		semi => 0,
+                @_);
+        my ($row,$col) = $m->dim;
+	my $s = "";
+	
+	if( $args{name} ){
+		$s = "$args{name} = ";
+	}
+	$s .= "[";
+	$m->each( 
+		sub { my($x,$i,$j) = @_;
+			$s .= sprintf(" $args{format}",$x);
+			$s .= ";\n" if( $j == $col && $i != $row);
+		}
+		);
+	$s .= "]";
+	$s .= ";" if $args{semi};
+	return $s;
+	
+
+}
 #TODO: any ideas for a good test?
-#TODO: docs
 sub as_latex{
 	my ($m) = shift;
 	my %args = ( 
@@ -3570,10 +3646,63 @@ except for the iterative methods "solve_GSM()", "solve_SSM()" and
 
 =item *
 
-C<$matrix-E<gt>norm_sum();>
+C<$norm_sum = $matrix-E<gt>norm_sum();>
 
 This is a very simple norm which is defined as the sum of the 
 absolute values of every element.
+
+=item *
+
+C<$p_norm> = $matrix-E<gt>norm_p($n);>
+
+This function returns the "p-norm" of a vector. The argument $n
+must be a number greater than or equal to 1 or the string "Inf".
+The p-norm is defined as (sum(x_i^p))^(1/p). In words, it raised
+each element to the p-th power, adds them up, and then takes the
+p-th root of that number. If the string "Inf" is passed, the
+"infinity-norm" is computed, which is really the limit of the 
+p-norm as p goes to infinity. It is defined as the maximum element
+of the vector. Also, note that the familiar Euclidean distance 
+between two vectors is just a special case of a p-norm, when p is
+equal to 2.
+
+Example:
+	$a = Math::MatrixReal->new_from_cols([[1,2,3]]);
+	$p1   = $a->norm_p(1);	
+        $p2   = $a->norm_p(2);    
+        $p3   = $a->norm_p(3);    
+	$pinf = $a->norm_p("Inf");
+
+	print "(1,2,3,Inf) norm:\n$p1\n$p2\n$p3\n$pinf\n";
+
+	$i1 = $a->new_from_rows([[1,0]]);
+	$i2 = $a->new_from_rows([[0,1]]);
+
+	# this should be sqrt(2) since it is the same as the 
+	# hypotenuse of a 1 by 1 right triangle
+
+	$dist  = ($i1-$i2)->norm_p(2);
+	print "Distance is $dist, which should be " . sqrt(2) . "\n";
+
+Output:
+
+	(1,2,3,Inf) norm:
+	6
+	3.74165738677394139
+	3.30192724889462668
+	3
+
+	Distance is 1.41421356237309505, which should be 1.41421356237309505
+
+
+
+=item *
+
+C<$frob_norm> = C<$matrix-E<gt>norm_frobenius();>
+
+This norm is similar to that of a p-norm where p is 2, except it
+acts on a B<matrix>, not a vector. Each element of the matrix is 
+squared, this is added up, and then a square root is taken. 
 
 =item *
 
@@ -3933,6 +4062,22 @@ Returns a boolean value indicating if the matrix is idempotent,
 which is defined as the square of the matrix being equal to 
 the original matrix, i.e C<$matrix ** 2 == $matrix>.
 
+=item *
+
+C<$matrix-E<gt>is_row_vector();>
+
+Returns a boolean value indicating if the matrix is a row vector.
+A row vector is a matrix which is 1xn. Note that the 1x1 matrix is
+both a row and column vector.
+
+=item *
+
+C<$matrix-E<gt>is_col_vector();>
+
+Returns a boolean value indicating if the matrix is a col vector.
+A col vector is a matrix which is nx1. Note that the 1x1 matrix is
+both a row and column vector.
+
 =head2 Eigensystems
 
 =over 2
@@ -4092,6 +4237,33 @@ Output:
 	\end{array} \right)
 	$
 
+=item *
+
+C<$matlab_string = $matrix-E<gt>as_matlab( format =E<gt> "%s", name =E<gt> "", semi =E<gt> 0 );>
+
+This function returns the matrix as a string that can be read by Matlab. It takes a hash as
+an an argument which controls the style of the output. The
+C<format> element is a format string that is given to C<sprintf> to control the
+style of number format, such a floating point or scientific notation. The C<name>
+element can be used so that "$name = " is prepended to the string. The <semi> element can
+be set to 1 to that a semicolon is appended (so Matlab does not print out the matrix.) 
+
+Example:
+
+        my $a = Math::MatrixReal->new_from_rows([[ 1.234, 5.678, 9.1011],[1,2,3]] );
+        print $a->as_matlab( ( format => "%.3f", name => "A",semi => 1 ) );
+
+Output:
+	A = [ 1.234 5.678 9.101;
+ 	 1.000 2.000 3.000];
+
+
+=item *
+
+C<$scilab_string = $matrix-E<gt>as_scilab( format =E<gt> "%s", name =E<gt> "", semi =E<gt> 0 );>
+
+This function is just an alias for C<as_matlab()>, since both Scilab and Matlab have the
+same matrix format.
 
 =item *
 
@@ -5111,7 +5283,7 @@ Set::IntegerRange, Set::IntegerFast .
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.7.
+This man page documents Math::MatrixReal version 1.8.
 
 The latest version can always be found at
 http://leto.net/code/Math-MatrixReal/

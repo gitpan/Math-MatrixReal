@@ -10,10 +10,13 @@ Row echelon form
 Column echelon form
 Hard: Jordan form
 More examples in docs
-print as latex,matlab,mathematica,other,...
+print as mathematica,scilab,other,...
+DONE:print as latex
+DONE:print as matlab
 DONE:make each,each_diag 1-based for consistency SOON
 t/basic.t should check results
 alphabetize section of docs
+$matrix->set_option( expand_on_assign => 1, format => "%s" );
 
  * Steffen Beyer ideas:
 

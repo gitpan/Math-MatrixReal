@@ -1,3 +1,18 @@
+Changes in v1.8 -- leto
+Sat Mar 23 00:13:48 EST 2002 
+----------------------------
+	* as_matlab() function added
+	* as_scilab() function added
+	* t/matlab.t created
+	* is_row_vector() function added
+	* is_col_vector() function added
+	* t/isrowcol.t created
+	* norm_p() function added
+	* norm_frobenius () function added
+	* t/vecnorm.t created
+
+
+
 Changes in v1.7 -- leto
 Fri Mar 15 13:09:49 EST 2002 
 ---------------------------
