@@ -3,3 +3,10 @@ MANIFEST
 Makefile.PL
 MatrixReal.pm
 README
+t/basic.t
+t/eigen_3x3.t
+t/eigen_7x7.t
+t/eigen_NxN.t
+t/bench_eigen.t
+t/bench_eigen2.t
+TODO

@@ -1,5 +1,5 @@
 =========================================
-  Package "Math-MatrixReal" Version 1.2
+  Package "Math-MatrixReal" Version 1.3
 =========================================
     for Perl version 5.000 and higher
 
@@ -13,7 +13,6 @@ Contents of this file:
     -   Preliminary steps for use with Perl prior to version 5.002
     -   How to install it
     -   Version history
-    -   Plans for the future
     -   Credits
     -   Final note
 
@@ -21,7 +20,9 @@ Contents of this file:
 Legal stuff:
 ------------
 
-Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
+Copyright (c) 1996, 1997 by Steffen Beyer.
+              1999 by Rodolphe Ortalo.
+ All rights reserved.
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
@@ -59,6 +60,8 @@ Features an implementation of Kleene's algorithm to compute the minimal
 costs for all paths in a graph with weighted edges (the "weights" being
 the costs associated with each edge).
 
+Allows to solve the eigensystem of a real symmetric matrix, using
+Householder transformation and QL decomposition.
 
 Preliminary steps for use with Perl prior to version 5.002:
 -----------------------------------------------------------
@@ -69,7 +72,7 @@ Edit the "Makefile.PL" file in this package and change the line
 
 to
 
-    'VERSION'		=> '1.2',
+    'VERSION'		=> '1.3',
 
 
 How to install it:
@@ -79,12 +82,17 @@ Please unpack and build this package OUTSIDE the Perl source and distribution
 tree!!
 
  1) Change directory to the directory that has been created by unpacking this
-    package ("Math-MatrixReal-1.2/").
+    package ("Math-MatrixReal-1.3/").
 
  2) Type "perl Makefile.PL".
     (Or whatever the name and path of your Perl 5 binary is)
+    Alternatively you can type, e.g., "perl Makefile.PL PREFIX=/home/doe"
+    to install the module in the home directory, e.g. John Doe...
 
  3) Type "make".
+
+ 3.5) Optionally, type "make test" to test the build and/or benchmark
+    your system a little.
 
  4) Type "make install".
 
@@ -103,22 +111,9 @@ that they don't fail anymore if an empty class name is given to them
 The documentation of the "new_from_string()" method was also slightly
 changed because it had proven to be incomplete and misleading.
 
-
-Plans for the future:
----------------------
-
-Define test cases (which is not trivial since results will depend on the
-local implementation of floating point arithmetics on a given machine!).
-
-Compute the characteristic polynom, eigenvalues and eigenvectors,
-orthogonal matrices, ...
-
-Deal with symmetric and with orthogonal matrices, multilinear functions, ...
-
-Create a module "Math::MatrixCplx" to deal with matrices of complex numbers...
-
-Deal with hermite matrices, multilinear functions, ...
-
+Version 1.3 included the eigenvalues/eigenvectors computation methods,
+added by Rodolphe Ortalo. Some test/bench programs were added also,
+especially for these methods.
 
 Credits:
 --------
@@ -130,6 +125,8 @@ Also many thanks to Stu Smith <stu@cs.uml.edu> for raising the questions
 concerning the "new_from_string()" method (whose documentation was mis-
 leading and incomplete)!
 
+Many thanks to Steffen Beyer himself for being very open to third-party
+additions. (Of course, this acknowledgment is due to Rodolphe. :-)
 
 Final note:
 -----------
@@ -139,6 +136,11 @@ findings, complaints, questions, insights, compliments or donations to give ;-)
 then please don't hesitate to send me a mail:
 
 sb@sdm.de (Steffen Beyer)
+
+You can also contact me if you think it's relevant (e.g. especially
+for compliments or donations ;-)):
+
+ortalo@laas.fr (Rodolphe Ortalo)
 
 In fact I'd be glad if you could drop me an e-mail when you are using this
 package, so I can see how much interest exists in it and how much time is

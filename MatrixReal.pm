@@ -1,5 +1,6 @@
 
 #  Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
+#  Copyright (c) 1999 by Rodolphe Ortalo. All rights reserved.
 #  This package is free software; you can redistribute it and/or
 #  modify it under the same terms as Perl itself.
 
@@ -18,7 +19,7 @@ require Exporter;
 
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
-$VERSION = '1.2';
+$VERSION = '1.3a5';
 
 use Carp;
 
@@ -69,13 +70,21 @@ sub new
       if ($cols <= 0);
 
     $this = [ [ ], $rows, $cols ];
-    for ( $i = 0; $i < $rows; $i++ )
+
+    # Creates first empty row
+    my $empty = [ ];
+    $#$empty = $cols - 1; # Lengthens the array
+    for (my $j = 0; $j < $cols; $j++)
     {
-        $this->[0][$i] = [ ];
-        for ( $j = 0; $j < $cols; $j++ )
-        {
-            $this->[0][$i][$j] = 0;
-        }
+	$empty->[$j] = 0.0;
+    }
+    $this->[0][0] = $empty;
+    # Creates other rows (by copying)
+    for (my $i = 1; $i < $rows; $i++)
+    {
+	my $arow = [ ];
+	@$arow = @$empty;
+	$this->[0][$i] = $arow;
     }
     bless($this, $class);
     return($this);
@@ -150,6 +159,7 @@ sub shadow
     return($temp);
 }
 
+
 sub copy
 {
     croak "Usage: \$matrix1->copy(\$matrix2);"
@@ -165,10 +175,10 @@ sub copy
 
     for ( $i = 0; $i < $rows1; $i++ )
     {
-        for ( $j = 0; $j < $cols1; $j++ )
-        {
-            $matrix1->[0][$i][$j] = $matrix2->[0][$i][$j];
-        }
+	my $r1 = []; # New array ref
+	my $r2 = $matrix2->[0][$i];
+	@$r1 = @$r2; # Copy whole array directly
+	$matrix1->[0][$i] = $r1;
     }
     if (defined $matrix2->[3]) # is an LR decomposition matrix!
     {
@@ -258,12 +268,15 @@ sub zero
 
     $this->_undo_LR();
 
-    for ( $i = 0; $i < $rows; $i++ )
+    # Zero first row
+    for (my $j = 0; $j < $cols; $j++ )
     {
-        for ( $j = 0; $j < $cols; $j++ )
-        {
-            $this->[0][$i][$j] = 0;
-        }
+	$this->[0][0][$j] = 0.0;
+    }
+    # Then propagate to other rows
+    for (my $i = 0; $i < $rows; $i++)
+    {
+	@{$this->[0][$i]} = @{$this->[0][0]};
     }
 }
 
@@ -276,15 +289,12 @@ sub one
     my($rows,$cols) = ($this->[1],$this->[2]);
     my($i,$j);
 
-    $this->_undo_LR();
-
-    for ( $i = 0; $i < $rows; $i++ )
+# No need for this: done by the 'zero()'
+#    $this->_undo_LR();
+    $this->zero(); # We rely on zero() efficiency
+    for (my $i = 0; $i < $rows; $i++ )
     {
-        for ( $j = 0; $j < $cols; $j++ )
-        {
-            $this->[0][$i][$j] = 0;
-        }
-        $this->[0][$i][$i] = 1;
+        $this->[0][$i][$i] = 1.0;
     }
 }
 
@@ -341,17 +351,16 @@ sub norm_one  #  maximum of sums of each column
 
     my($this) = @_;
     my($rows,$cols) = ($this->[1],$this->[2]);
-    my($max,$sum,$i,$j);
 
-    $max = 0;
-    for ( $j = 0; $j < $cols; $j++ )
+    my $max = 0.0;
+    for (my $j = 0; $j < $cols; $j++)
     {
-        $sum = 0;
-        for ( $i = 0; $i < $rows; $i++ )
+        my $sum = 0.0;
+        for (my $i = 0; $i < $rows; $i++)
         {
             $sum += abs( $this->[0][$i][$j] );
         }
-        if ($sum > $max) { $max = $sum; }
+	$max = $sum if ($sum > $max);
     }
     return($max);
 }
@@ -363,17 +372,16 @@ sub norm_max  #  maximum of sums of each row
 
     my($this) = @_;
     my($rows,$cols) = ($this->[1],$this->[2]);
-    my($max,$sum,$i,$j);
 
-    $max = 0;
-    for ( $i = 0; $i < $rows; $i++ )
+    my $max = 0.0;
+    for (my $i = 0; $i < $rows; $i++)
     {
-        $sum = 0;
-        for ( $j = 0; $j < $cols; $j++ )
+        my $sum = 0.0;
+        for (my $j = 0; $j < $cols; $j++)
         {
             $sum += abs( $this->[0][$i][$j] );
         }
-        if ($sum > $max) { $max = $sum; }
+	$max = $sum if ($sum > $max);
     }
     return($max);
 }
@@ -386,16 +394,15 @@ sub negate
     my($matrix1,$matrix2) = @_;
     my($rows1,$cols1) = ($matrix1->[1],$matrix1->[2]);
     my($rows2,$cols2) = ($matrix2->[1],$matrix2->[2]);
-    my($i,$j);
 
     croak "Math::MatrixReal::negate(): matrix size mismatch"
       unless (($rows1 == $rows2) && ($cols1 == $cols2));
 
     $matrix1->_undo_LR();
 
-    for ( $i = 0; $i < $rows1; $i++ )
+    for (my $i = 0; $i < $rows1; $i++ )
     {
-        for ( $j = 0; $j < $cols1; $j++ )
+        for (my $j = 0; $j < $cols1; $j++ )
         {
             $matrix1->[0][$i][$j] = -($matrix2->[0][$i][$j]);
         }
@@ -410,7 +417,6 @@ sub transpose
     my($matrix1,$matrix2) = @_;
     my($rows1,$cols1) = ($matrix1->[1],$matrix1->[2]);
     my($rows2,$cols2) = ($matrix2->[1],$matrix2->[2]);
-    my($i,$j,$swap);
 
     croak "Math::MatrixReal::transpose(): matrix size mismatch"
       unless (($rows1 == $cols2) && ($cols1 == $rows2));
@@ -421,11 +427,11 @@ sub transpose
     {
         # more complicated to make in-place possible!
 
-        for ( $i = 0; $i < $rows1; $i++ )
+        for (my $i = 0; $i < $rows1; $i++)
         {
-            for ( $j = ($i + 1); $j < $cols1; $j++ )
+            for (my $j = ($i + 1); $j < $cols1; $j++)
             {
-                $swap                 = $matrix2->[0][$i][$j];
+                my $swap              = $matrix2->[0][$i][$j];
                 $matrix1->[0][$i][$j] = $matrix2->[0][$j][$i];
                 $matrix1->[0][$j][$i] = $swap;
             }
@@ -434,9 +440,9 @@ sub transpose
     }
     else # ($rows1 != $cols1)
     {
-        for ( $i = 0; $i < $rows1; $i++ )
+        for (my $i = 0; $i < $rows1; $i++)
         {
-            for ( $j = 0; $j < $cols1; $j++ )
+            for (my $j = 0; $j < $cols1; $j++)
             {
                 $matrix1->[0][$i][$j] = $matrix2->[0][$j][$i];
             }
@@ -530,21 +536,20 @@ sub multiply
     my($matrix1,$matrix2) = @_;
     my($rows1,$cols1) = ($matrix1->[1],$matrix1->[2]);
     my($rows2,$cols2) = ($matrix2->[1],$matrix2->[2]);
-    my($i,$j,$k,$sum);
     my($temp);
 
     croak "Math::MatrixReal::multiply(): matrix size mismatch"
       unless ($cols1 == $rows2);
 
     $temp = $matrix1->new($rows1,$cols2);
-    for ( $i = 0; $i < $rows1; $i++ )
+    for (my $i = 0; $i < $rows1; $i++ )
     {
-        for ( $j = 0; $j < $cols2; $j++ )
+        for (my $j = 0; $j < $cols2; $j++ )
         {
-            $sum = 0;
-            for ( $k = 0; $k < $cols1; $k++ )
+            my $sum = 0.0;
+            for (my $k = 0; $k < $cols1; $k++ )
             {
-                $sum += ( $matrix1->[0][$i][$k] * $matrix2->[0][$k][$j] );
+	      $sum += ( $matrix1->[0][$i][$k] * $matrix2->[0][$k][$j] );
             }
             $temp->[0][$i][$j] = $sum;
         }
@@ -1278,6 +1283,580 @@ sub solve_RM  #  Relaxation Method
         }
     }
     return($xn_vector);
+}
+
+# Core householder reduction routine (when eagenvector
+# are wanted).
+# Adapted from: Numerical Recipes, 2nd edition.
+sub _householder_vectors ($)
+{
+    my ($Q) = @_;
+    my ($rows, $cols) = ($Q->[1], $Q->[2]);
+    
+    # Creates tridiagonal
+    # Set up tridiagonal needed elements
+    my $d = []; # N Diagonal elements 0...n-1
+    my $e = []; # N-1 Off-Diagonal elements 0...n-2
+    
+    my @p = ();
+    for (my $i = ($rows-1); $i > 1; $i--)
+    {
+	my $scale = 0.0;
+	# Computes norm of one column (below diagonal)
+	for (my $k = 0; $k < $i; $k++)
+	{
+	    $scale += abs($Q->[0][$i][$k]);
+	}
+	if ($scale == 0.0)
+	{ # skip the transformation
+	    $e->[$i-1] = $Q->[0][$i][$i-1];
+	}
+	else
+	{
+	    my $h = 0.0;
+	    for (my $k = 0; $k < $i; $k++)
+	    { # Used scaled Q for transformation
+		$Q->[0][$i][$k] /= $scale;
+		# Form sigma in h
+		$h += $Q->[0][$i][$k] * $Q->[0][$i][$k];
+	    }
+	    my $t1 = $Q->[0][$i][$i-1];
+	    my $t2 = (($t1 >= 0.0) ? -sqrt($h) : sqrt($h));
+	    $e->[$i-1] = $scale * $t2; # Update off-diagonals
+	    $h -= $t1 * $t2;
+	    $Q->[0][$i][$i-1] -= $t2;
+	    my $f = 0.0;
+	    for (my $j = 0; $j < $i; $j++)
+	    {
+		$Q->[0][$j][$i] = $Q->[0][$i][$j] / $h;
+		my $g = 0.0;
+		for (my $k = 0; $k <= $j; $k++)
+		{
+		    $g += $Q->[0][$j][$k] * $Q->[0][$i][$k];
+		}
+		for (my $k = $j+1; $k < $i; $k++)
+		{
+		    $g += $Q->[0][$k][$j] * $Q->[0][$i][$k];
+		}
+		# Form elements of P
+		$p[$j] = $g / $h;
+		$f += $p[$j] * $Q->[0][$i][$j];
+	    }
+	    my $hh = $f / ($h + $h);
+	    for (my $j = 0; $j < $i; $j++)
+	    {
+		my $t3 = $Q->[0][$i][$j];
+		my $t4 = $p[$j] - $hh * $t3;
+		$p[$j] = $t4;
+		for (my $k = 0; $k <= $j; $k++)
+		{
+		    $Q->[0][$j][$k] -= $t3 * $p[$k]
+			+ $t4 * $Q->[0][$i][$k];
+		}
+	    }
+	}
+    }
+    # Updates for i == 0,1
+    $e->[0] = $Q->[0][1][0];    
+    $d->[0] = $Q->[0][0][0]; # i==0
+    $Q->[0][0][0] = 1.0;
+    $d->[1] = $Q->[0][1][1]; # i==1
+    $Q->[0][1][1] = 1.0;
+    $Q->[0][1][0] = $Q->[0][0][1] = 0.0;
+    for (my $i = 2; $i < $rows; $i++)
+    {
+	for (my $j = 0; $j < $i; $j++)
+	{
+	    my $g = 0.0;
+	    for (my $k = 0; $k < $i; $k++)
+	    {
+		$g += $Q->[0][$i][$k] * $Q->[0][$k][$j];
+	    }
+	    for (my $k = 0; $k < $i; $k++)
+	    {
+		$Q->[0][$k][$j] -= $g * $Q->[0][$k][$i];
+	    }
+	}
+	$d->[$i] = $Q->[0][$i][$i];
+	# Reset row and column of Q for next iteration
+	$Q->[0][$i][$i] = 1.0;
+	for (my $j = 0; $j < $i; $j++)
+	{
+	    $Q->[0][$i][$j] = $Q->[0][$j][$i] = 0.0;
+	}
+    }
+    return ($d, $e);
+}
+
+# Computes sqrt(a*a + b*b), but more carefully...
+sub _pythag ($$)
+{
+    my ($a, $b) = @_;
+    my $aa = abs($a);
+    my $ab = abs($b);
+    if ($aa > $ab)
+    {
+	# NB: Not needed!: return 0.0 if ($aa == 0.0);
+	my $t = $ab / $aa;
+	return ($aa * sqrt(1.0 + $t*$t));
+    }
+    else
+    {
+	return 0.0 if ($ab == 0.0);
+	my $t = $aa / $ab;
+	return ($ab * sqrt(1.0 + $t*$t));
+    }
+}
+
+# QL algorithm with implicit shifts to determine the eigenvalues
+# of a tridiagonal matrix. Internal routine.
+sub _tridiagonal_QLimplicit
+{
+    my ($EV, $d, $e) = @_;
+    my ($rows, $cols) = ($EV->[1], $EV->[2]);
+
+    $e->[$rows-1] = 0.0;
+    # Start real computation
+    for (my $l = 0; $l < $rows; $l++)
+    {
+	my $iter = 0;
+	my $m;
+	OUTER:
+	do {
+	    for ($m = $l; $m < ($rows - 1); $m++)
+	    {
+		my $dd = abs($d->[$m]) + abs($d->[$m+1]);
+		last if ((abs($e->[$m]) + $dd) == $dd);
+	    }
+	    if ($m != $l)
+	    {
+		croak("Too many iterations!") if ($iter++ >= 30);
+		my $g = ($d->[$l+1] - $d->[$l])
+		    / (2.0 * $e->[$l]);
+		my $r = _pythag($g, 1.0);
+		$g = $d->[$m] - $d->[$l]
+		    + $e->[$l] / ($g + (($g >= 0.0) ? abs($r) : -abs($r)));
+		my ($p,$s,$c) = (0.0, 1.0,1.0);
+		for (my $i = ($m-1); $i >= $l; $i--)
+		{
+		    my $ii = $i + 1;
+		    my $f = $s * $e->[$i];
+		    my $t = _pythag($f, $g);
+		    $e->[$ii] = $t;
+		    if ($t == 0.0)
+		    {
+			$d->[$ii] -= $p;
+			$e->[$m] = 0.0;
+			next OUTER;
+		    }
+		    my $b = $c * $e->[$i];
+		    $s = $f / $t;
+		    $c = $g / $t;
+		    $g = $d->[$ii] - $p;
+		    my $t2 = ($d->[$i] - $g) * $s + 2.0 * $c * $b;
+		    $p = $s * $t2;
+		    $d->[$ii] = $g + $p;
+		    $g = $c * $t2 - $b;
+		    for (my $k = 0; $k < $rows; $k++)
+		    {
+			my $t1 = $EV->[0][$k][$ii];
+			my $t2 = $EV->[0][$k][$i];
+			$EV->[0][$k][$ii] = $s * $t2 + $c * $t1;
+			$EV->[0][$k][$i] = $c * $t2 - $s * $t1;
+		    }
+		}
+		$d->[$l] -= $p;
+		$e->[$l] = $g;
+		$e->[$m] = 0.0;
+	    }
+	} while ($m != $l);
+    }
+    return;
+}
+
+# Core householder reduction routine (when eagenvector
+# are NOT wanted).
+sub _householder_values ($)
+{
+    my ($Q) = @_; # NB: Q is destroyed on output...
+    my ($rows, $cols) = ($Q->[1], $Q->[2]);
+    
+    # Creates tridiagonal
+    # Set up tridiagonal needed elements
+    my $d = []; # N Diagonal elements 0...n-1
+    my $e = []; # N-1 Off-Diagonal elements 0...n-2
+    
+    my @p = ();
+    for (my $i = ($rows - 1); $i > 1; $i--)
+    {
+	my $scale = 0.0;
+	for (my $k = 0; $k < $i; $k++)
+	{
+	    $scale += abs($Q->[0][$i][$k]);
+	}
+	if ($scale == 0.0)
+	{ # skip the transformation
+	    $e->[$i-1] = $Q->[0][$i][$i-1];
+	}
+	else
+	{
+	    my $h = 0.0;
+	    for (my $k = 0; $k < $i; $k++)
+	    { # Used scaled Q for transformation
+		$Q->[0][$i][$k] /= $scale;
+		# Form sigma in h
+		$h += $Q->[0][$i][$k] * $Q->[0][$i][$k];
+	    }
+	    my $t = $Q->[0][$i][$i-1];
+	    my $t2 = (($t >= 0.0) ? -sqrt($h) : sqrt($h));
+	    $e->[$i-1] = $scale * $t2; # Updates off-diagonal
+	    $h -= $t * $t2;
+	    $Q->[0][$i][$i-1] -= $t2;
+	    my $f = 0.0;
+	    for (my $j = 0; $j < $i; $j++)
+	    {
+		my $g = 0.0;
+		for (my $k = 0; $k <= $j; $k++)
+		{
+		    $g += $Q->[0][$j][$k] * $Q->[0][$i][$k];
+		}
+		for (my $k = $j+1; $k < $i; $k++)
+		{
+		    $g += $Q->[0][$k][$j] * $Q->[0][$i][$k];
+		}
+		# Form elements of P
+		$p[$j] = $g / $h;
+		$f += $p[$j] * $Q->[0][$i][$j];
+	    }
+	    my $hh = $f / ($h + $h);
+	    for (my $j = 0; $j < $i; $j++)
+	    {
+		my $t = $Q->[0][$i][$j];
+		my $g = $p[$j] - $hh * $t;
+		$p[$j] = $g;
+		for (my $k = 0; $k <= $j; $k++)
+		{
+		    $Q->[0][$j][$k] -= $t * $p[$k]
+			+ $g * $Q->[0][$i][$k];
+		}
+	    }
+	}
+    }
+    # Updates for i==1
+    $e->[0] =  $Q->[0][1][0];
+    # Updates diagonal elements
+    for (my $i = 0; $i < $rows; $i++)
+    {
+	$d->[$i] =  $Q->[0][$i][$i];
+    }
+    return ($d, $e);
+}
+
+# QL algorithm with implicit shifts to determine the
+# eigenvalues ONLY. This is O(N^2) only...
+sub _tridiagonal_QLimplicit_values
+{
+    my ($M, $d, $e) = @_; # NB: M is not touched...
+    my ($rows, $cols) = ($M->[1], $M->[2]);
+
+    $e->[$rows-1] = 0.0;
+    # Start real computation
+    for (my $l = 0; $l < $rows; $l++)
+    {
+	my $iter = 0;
+	my $m;
+	OUTER:
+	do {
+	    for ($m = $l; $m < ($rows - 1); $m++)
+	    {
+		my $dd = abs($d->[$m]) + abs($d->[$m+1]);
+		last if ((abs($e->[$m]) + $dd) == $dd);
+	    }
+	    if ($m != $l)
+	    {
+		croak("Too many iterations!") if ($iter++ >= 30);
+		my $g = ($d->[$l+1] - $d->[$l])
+		    / (2.0 * $e->[$l]);
+		my $r = _pythag($g, 1.0);
+		$g = $d->[$m] - $d->[$l]
+		    + $e->[$l] / ($g + (($g >= 0.0) ? abs($r) : -abs($r)));
+		my ($p,$s,$c) = (0.0, 1.0,1.0);
+		for (my $i = ($m-1); $i >= $l; $i--)
+		{
+		    my $ii = $i + 1;
+		    my $f = $s * $e->[$i];
+		    my $t = _pythag($f, $g);
+		    $e->[$ii] = $t;
+		    if ($t == 0.0)
+		    {
+			$d->[$ii] -= $p;
+			$e->[$m] = 0.0;
+			next OUTER;
+		    }
+		    my $b = $c * $e->[$i];
+		    $s = $f / $t;
+		    $c = $g / $t;
+		    $g = $d->[$ii] - $p;
+		    my $t2 = ($d->[$i] - $g) * $s + 2.0 * $c * $b;
+		    $p = $s * $t2;
+		    $d->[$ii] = $g + $p;
+		    $g = $c * $t2 - $b;
+		}
+		$d->[$l] -= $p;
+		$e->[$l] = $g;
+		$e->[$m] = 0.0;
+	    }
+	} while ($m != $l);
+    }
+    return;
+}
+
+# Householder reduction of a real, symmetric matrix A.
+# Returns a tridiagonal matrix T and the orthogonal matrix
+# Q effecting the transformation between A and T.
+sub householder ($)
+{
+    my ($A) = @_;
+    my ($rows, $cols) = ($A->[1], $A->[2]);
+
+    croak "Matrix is not quadratic"
+	unless ($rows = $cols);
+    croak "Matrix is not symmetric"
+        unless ($A->is_symmetric());
+
+    # Copy given matrix TODO: study if we should do in-place modification
+    my $Q = $A->clone();
+
+    # Do the computation of tridiagonal elements and of
+    # transformation matrix
+    my ($diag, $offdiag) = $Q->_householder_vectors();
+
+    # Creates the tridiagonal matrix
+    my $T = $A->shadow();
+    for (my $i = 0; $i < $rows; $i++)
+    { # Set diagonal
+	$T->[0][$i][$i] = $diag->[$i];
+    }
+    for (my $i = 0; $i < ($rows-1); $i++)
+    { # Set off diagonals
+	$T->[0][$i+1][$i] = $offdiag->[$i];
+	$T->[0][$i][$i+1] = $offdiag->[$i];
+    }
+    return ($T, $Q);
+}
+
+# QL algorithm with implicit shifts to determine the eigenvalues
+# and eigenvectors of a real tridiagonal matrix - or of a matrix
+# previously reduced to tridiagonal form.
+sub tri_diagonalize ($;$)
+{
+  my ($T,$Q) = @_; # Q may be 0 if the original matrix is really tridiagonal
+
+  my ($rows, $cols) = ($T->[1], $T->[2]);
+
+  croak "Matrix is not quadratic"
+    unless ($rows = $cols);
+  croak "Matrix is not tridiagonal"
+        unless ($T->is_symmetric()); # TODO: Do real tridiag check (not symmetric)!
+
+  my $EV;
+  # Obtain/Creates the todo eigenvectors matrix
+  if ($Q)
+    {
+      $EV = $Q->clone();
+    }
+  else
+    {
+      $EV = $T->shadow();
+      $EV->one();
+    }
+  # Allocates diagonal vector
+  my $diag = [ ];
+  # Initializes it with T
+  for (my $i = 0; $i < $rows; $i++)
+    {
+      $diag->[$i] = $T->[0][$i][$i];
+    }
+  # Allocate temporary vector for off-diagonal elements
+  my $offdiag = [ ];
+  for (my $i = 1; $i < $rows; $i++)
+    {
+      $offdiag->[$i-1] = $T->[0][$i][$i-1];
+    }
+
+  # Calls the calculus routine
+  $EV->_tridiagonal_QLimplicit($diag, $offdiag);
+
+  # Allocate eigenvalues vector
+  my $v = Math::MatrixReal->new($rows,1);
+  # Fills it
+  for (my $i = 0; $i < $rows; $i++)
+    {
+	$v->[0][$i][0] = $diag->[$i];
+    }
+  return ($v, $EV);
+}
+
+# Main routine for diagonalization of a real symmetric
+# matrix M. Operates by transforming M into a tridiagonal
+# matrix and then obtaining the eigenvalues and eigenvectors
+# for that matrix (taking into account the transformation to
+# tridiagonal).
+sub sym_diagonalize ($)
+{
+    my ($M) = @_;
+    my ($rows, $cols) = ($M->[1], $M->[2]);
+    
+    croak "Matrix is not quadratic"
+	unless ($rows = $cols);
+    croak "Matrix is not symmetric"
+        unless ($M->is_symmetric());
+    
+    # Copy initial matrix
+    # TODO: study if we should allow in-place modification
+    my $VEC = $M->clone();
+
+    # Do the computation of tridiagonal elements and of
+    # transformation matrix
+    my ($diag, $offdiag) = $VEC->_householder_vectors();
+    # Calls the calculus routine for diagonalization
+    $VEC->_tridiagonal_QLimplicit($diag, $offdiag);
+
+    # Allocate eigenvalues vector
+    my $val = Math::MatrixReal->new($rows,1);
+    # Fills it
+    for (my $i = 0; $i < $rows; $i++)
+    {
+	$val->[0][$i][0] = $diag->[$i];
+    }
+    return ($val, $VEC);
+}
+
+# Householder reduction of a real, symmetric matrix A.
+# Returns a tridiagonal matrix T equivalent to A.
+sub householder_tridiagonal ($)
+{
+    my ($A) = @_;
+    my ($rows, $cols) = ($A->[1], $A->[2]);
+
+    croak "Matrix is not quadratic"
+	unless ($rows = $cols);
+    croak "Matrix is not symmetric"
+        unless ($A->is_symmetric());
+
+    # Copy given matrix
+    my $Q = $A->clone();
+
+    # Do the computation of tridiagonal elements and of
+    # transformation matrix
+    # Q is destroyed after reduction
+    my ($diag, $offdiag) = $Q->_householder_values();
+
+    # Creates the tridiagonal matrix in Q (avoid allocation)
+    my $T = $Q;
+    $T->zero();
+    for (my $i = 0; $i < $rows; $i++)
+    { # Set diagonal
+	$T->[0][$i][$i] = $diag->[$i];
+    }
+    for (my $i = 0; $i < ($rows-1); $i++)
+    { # Set off diagonals
+	$T->[0][$i+1][$i] = $offdiag->[$i];
+	$T->[0][$i][$i+1] = $offdiag->[$i];
+    }
+    return $T;
+}
+
+# QL algorithm with implicit shifts to determine ONLY
+# the eigenvalues a real tridiagonal matrix - or of a
+# matrix previously reduced to tridiagonal form.
+sub tri_eigenvalues ($;$)
+{
+  my ($T) = @_;
+  my ($rows, $cols) = ($T->[1], $T->[2]);
+
+  croak "Matrix is not quadratic"
+    unless ($rows = $cols);
+  croak "Matrix is not tridiagonal"
+        unless ($T->is_symmetric()); # TODO: Do real tridiag check (not symmetric)!
+
+  # Allocates diagonal vector
+  my $diag = [ ];
+  # Initializes it with T
+  for (my $i = 0; $i < $rows; $i++)
+    {
+      $diag->[$i] = $T->[0][$i][$i];
+    }
+  # Allocate temporary vector for off-diagonal elements
+  my $offdiag = [ ];
+  for (my $i = 1; $i < $rows; $i++)
+    {
+      $offdiag->[$i-1] = $T->[0][$i][$i-1];
+    }
+
+  # Calls the calculus routine (T is not touched)
+  $T->_tridiagonal_QLimplicit_values($diag, $offdiag);
+
+  # Allocate eigenvalues vector
+  my $v = Math::MatrixReal->new($rows,1);
+  # Fills it
+  for (my $i = 0; $i < $rows; $i++)
+    {
+	$v->[0][$i][0] = $diag->[$i];
+    }
+  return $v;
+}
+
+# Main routine for diagonalization of a real symmetric
+# matrix M. Operates by transforming M into a tridiagonal
+# matrix and then obtaining the eigenvalues and eigenvectors
+# for that matrix (taking into account the transformation to
+# tridiagonal).
+sub sym_eigenvalues ($)
+{
+    my ($M) = @_;
+    my ($rows, $cols) = ($M->[1], $M->[2]);
+    
+    croak "Matrix is not quadratic"
+	unless ($rows = $cols);
+    croak "Matrix is not symmetric"
+        unless ($M->is_symmetric());
+
+    # Copy matrix in temporary
+    my $A = $M->clone();
+    # Do the computation of tridiagonal elements and of
+    # transformation matrix. A is destroyed
+    my ($diag, $offdiag) = $A->_householder_values();
+    # Calls the calculus routine for diagonalization
+    # (M is not touched)
+    $M->_tridiagonal_QLimplicit_values($diag, $offdiag);
+
+    # Allocate eigenvalues vector
+    my $val = Math::MatrixReal->new($rows,1);
+    # Fills it
+    for (my $i = 0; $i < $rows; $i++)
+    {
+	$val->[0][$i][0] = $diag->[$i];
+    }
+    return $val;
+}
+
+# Boolean check routine to see if a matrix is
+# symmetric
+sub is_symmetric ($)
+{
+  my ($M) = @_;
+  my ($rows, $cols) = ($M->[1], $M->[2]);
+  # if it is not quadratic it cannot be symmetric...
+  return 0 unless ($rows == $cols);
+  for (my $i = 1; $i < $rows; $i++)
+    {
+      for (my $j = 0; $j < $i; $j++)
+	{
+	  return 0 unless ($M->[0][$i][$j] == $M->[0][$j][$i]);
+	}
+    }
+  return 1;
 }
 
                 ########################################
@@ -2904,6 +3483,116 @@ Remember that in most cases, it is probably advantageous to first
 
 =back
 
+=head2 Eigensystems
+
+=over 2
+
+=item *
+
+C<$matrix-E<gt>is_symmetric();>
+
+Returns a boolean value indicating if the given matrix is
+symmetric (B<M>[I<i>,I<j>]=B<M>[I<j>,I<i>]). This is equivalent to 
+C<($matrix == ~$matrix)> but without memory allocation.
+
+=item *
+
+C<($l, $V) = $matrix-E<gt>sym_diagonalize();>
+
+This method performs the diagonalization of the quadratic
+I<symmetric> matrix B<M> stored in $matrix.
+On output, B<l> is a column vector containing all the eigenvalues
+of B<M> and B<V> is an orthogonal matrix which columns are the
+corresponding normalized eigenvectors.
+The primary property of an eigenvalue I<l> and an eigenvector
+B<x> is of course that: B<M> * B<x> = I<l> * B<x>.
+
+The method uses a Householder reduction to tridiagonal form
+followed by a QL algoritm with implicit shifts on this
+tridiagonal. (The tridiagonal matrix is kept internally
+in a compact form in this routine to save memory.)
+In fact, this routine wraps the householder() and
+tri_diagonalize() methods described below when their
+intermediate results are not desired.
+The overall algorithmic complexity of this technique
+is O(N^3). According to several books, the coefficient
+hidden by the 'O' is one of the best possible for general
+(symmetric) matrixes.
+
+=item *
+
+C<($T, $Q) = $matrix-E<gt>householder();>
+
+This method performs the Householder algorithm which reduces
+the I<n> by I<n> real I<symmetric> matrix B<M> contained
+in $matrix to tridiagonal form.
+On output, B<T> is a symmetric tridiagonal matrix (only
+diagonal and off-diagonal elements are non-zero) and B<Q>
+is an I<orthogonal> matrix performing the tranformation
+between B<M> and B<T> (C<$M == $Q * $T * ~$Q>).
+
+=item *
+
+C<($l, $V) = $T-E<gt>tri_diagonalize([$Q]);>
+
+This method diagonalizes the symmetric tridiagonal
+matrix B<T>. On output, $l and $V are similar to the
+output values described for sym_diagonalize().
+
+The optional argument $Q corresponds to an orthogonal
+transformation matrix B<Q> that should be used additionally
+during B<V> (eigenvectors) computation. It should be supplied
+if the desired eigenvectors correspond to a more general
+symmetric matrix B<M> previously reduced by the
+householder() method, not a mere tridiagonal. If B<T> is
+really a tridiagonal matrix, B<Q> can be omitted (it
+will be internally created in fact as an identity matrix).
+The method uses a QL algorithm (with implicit shifts).
+
+=item *
+
+C<$l = $matrix-E<gt>sym_eigenvalues();>
+
+This method computes the eigenvalues of the quadratic
+I<symmetric> matrix B<M> stored in $matrix.
+On output, B<l> is a column vector containing all the eigenvalues
+of B<M>. Eigenvectors are not computed (on the contrary of
+C<sym_diagonalize()>) and this method is more efficient
+(even though it uses a similar algorithm with two phases).
+However, understand that the algorithmic complexity of this
+technique is still also O(N^3). But the coefficient hidden
+by the 'O' is better by a factor of..., well, see your
+benchmark, it's wiser.
+
+This routine wraps the householder_tridiagonal() and
+tri_eigenvalues() methods described below when the
+intermediate tridiagonal matrix is not needed.
+
+=item *
+
+C<$T = $matrix-E<gt>householder_tridiagonal();>
+
+This method performs the Householder algorithm which reduces
+the I<n> by I<n> real I<symmetric> matrix B<M> contained
+in $matrix to tridiagonal form.
+On output, B<T> is the obtained symmetric tridiagonal matrix
+(only diagonal and off-diagonal elements are non-zero). The
+operation is similar to the householder() method, but potentially
+a little more efficient as the transformation matrix is not
+computed.
+
+=item *
+
+C<$l = $T-E<gt>tri_eigenvalues();>
+
+This method compute the eigenvalues of the symmetric
+tridiagonal matrix B<T>. On output, $l is a vector
+containing the eigenvalues (similar to C<sym_eigenvalues()>).
+This method is much more efficient than tri_diagonalize()
+when eigenvectors are not needed.
+
+=back
+
 =head1 OVERLOADED OPERATORS
 
 =head2 SYNOPSIS
@@ -3192,11 +3881,11 @@ Set::IntegerRange(3), Set::IntegerFast(3).
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.2.
+This man page documents Math::MatrixReal version 1.3.
 
-=head1 AUTHOR
+=head1 AUTHORS
 
-Steffen Beyer <sb@sdm.de>.
+Steffen Beyer <sb@sdm.de>, Rodolphe Ortalo <ortalo@laas.fr>.
 
 =head1 CREDITS
 
@@ -3207,7 +3896,8 @@ lectures in Numerical Analysis!
 
 =head1 COPYRIGHT
 
-Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
+Copyright (c) 1996, 1997, 1999 by Steffen Beyer and Rodolphe Ortalo.
+All rights reserved.
 
 =head1 LICENSE AGREEMENT
 
