@@ -18,7 +18,7 @@ require Exporter;
 
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
 
-$VERSION = '1.1';
+$VERSION = '1.2';
 
 use Carp;
 
@@ -56,14 +56,11 @@ sub new
       if (@_ != 3);
 
     my $proto = shift;
-    my $class = ref($proto) || $proto || '';
+    my $class = ref($proto) || $proto || 'Math::MatrixReal';
     my $rows = shift;
     my $cols = shift;
     my($i,$j);
     my($this);
-
-    croak "Math::MatrixReal::new(): error in first parameter (class name or reference)"
-      if ($class eq '');
 
     croak "Math::MatrixReal::new(): number of rows must be > 0"
       if ($rows <= 0);
@@ -90,16 +87,13 @@ sub new_from_string
       if (@_ != 2);
 
     my $proto  = shift;
-    my $class  = ref($proto) || $proto || '';
+    my $class  = ref($proto) || $proto || 'Math::MatrixReal';
     my $string = shift;
     my($line,$values);
     my($rows,$cols);
     my($row,$col);
     my($warn);
     my($this);
-
-    croak "Math::MatrixReal::new_from_string(): error in first parameter (class name or reference)"
-      if ($class eq '');
 
     $warn = 0;
     $rows = 0;
@@ -1813,10 +1807,12 @@ C<$new_matrix = Math::MatrixReal-E<gt>>C<new_from_string($string);>
 This method allows you to read in a matrix from a string (for
 instance, from the keyboard, from a file or from your code).
 
-The syntax is simple: each row must start with "[" and end with "]"
-and a "\n" and contain one or more numbers, all separated by spaces
-or tabs. Additional spaces or tabs can be added at will, but no
-comments.
+The syntax is simple: each row must start with "C<[ >" and end with
+"C< ]\n>" ("C<\n>" being the newline character and "C< >" a space or
+tab) and contain one or more numbers, all separated from each other
+by spaces or tabs.
+
+Additional spaces or tabs can be added at will, but no comments.
 
 Examples:
 
@@ -1872,8 +1868,9 @@ If the string you supply (or someone else supplies) does not obey
 the syntax mentioned above, an exception is raised, which can be
 caught by "eval" as follows:
 
-  print "Please enter your matrix: ";
+  print "Please enter your matrix (in one line): ";
   $string = <STDIN>;
+  $string =~ s/\\n/\n/g;
   eval { $matrix = Math::MatrixReal->new_from_string($string); };
   if ($@)
   {
@@ -1896,7 +1893,27 @@ or as follows:
   if ($@)
   # ...
 
-Possible error messages are:
+Actually, the method shown above for reading a matrix from the keyboard
+is a little awkward, since you have to enter a lot of "\n"'s for the
+newlines.
+
+A better way is shown in this piece of code:
+
+  while (1)
+  {
+      print "\nPlease enter your matrix ";
+      print "(multiple lines, <ctrl-D> = done):\n";
+      eval { $new_matrix =
+          Math::MatrixReal->new_from_string(join('',<STDIN>)); };
+      if ($@)
+      {
+          $@ =~ s/\s+at\b.*?$//;
+          print "${@}Please try again.\n";
+      }
+      else { last; }
+  }
+
+Possible error messages of the "new_from_string()" method are:
 
   Math::MatrixReal::new_from_string(): syntax error in input string
   Math::MatrixReal::new_from_string(): empty input string
@@ -3175,11 +3192,11 @@ Set::IntegerRange(3), Set::IntegerFast(3).
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.1.
+This man page documents Math::MatrixReal version 1.2.
 
 =head1 AUTHOR
 
-Steffen Beyer <sb@sdm.de> (sd&m GmbH&Co.KG, Munich, Germany)
+Steffen Beyer <sb@sdm.de>.
 
 =head1 CREDITS
 

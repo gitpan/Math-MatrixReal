@@ -1,5 +1,5 @@
 =========================================
-  Package "Math-MatrixReal" Version 1.1
+  Package "Math-MatrixReal" Version 1.2
 =========================================
     for Perl version 5.000 and higher
 
@@ -69,7 +69,7 @@ Edit the "Makefile.PL" file in this package and change the line
 
 to
 
-    'VERSION'		=> '1.1',
+    'VERSION'		=> '1.2',
 
 
 How to install it:
@@ -79,7 +79,7 @@ Please unpack and build this package OUTSIDE the Perl source and distribution
 tree!!
 
  1) Change directory to the directory that has been created by unpacking this
-    package ("Math-MatrixReal-1.1/").
+    package ("Math-MatrixReal-1.2/").
 
  2) Type "perl Makefile.PL".
     (Or whatever the name and path of your Perl 5 binary is)
@@ -94,7 +94,14 @@ Version history:
 
 Version 1.0 was the initial release.
 
-Version 1.1 fixes a bug in the "kleene()" method.
+Version 1.1 fixed a bug in the "kleene()" method.
+
+Version 1.2 changed the "new()" and "new_from_string()" methods so
+that they don't fail anymore if an empty class name is given to them
+(instead, "Math::MatrixReal" is used as the default).
+
+The documentation of the "new_from_string()" method was also slightly
+changed because it had proven to be incomplete and misleading.
 
 
 Plans for the future:
@@ -116,8 +123,12 @@ Deal with hermite matrices, multilinear functions, ...
 Credits:
 --------
 
-None yet except - as always - to Andreas Koenig <andreas.koenig@mind.de>
+As always, many thanks to Andreas Koenig <andreas.koenig@mind.de>
 for his relentless support and efforts as upload manager of the CPAN!
+
+Also many thanks to Stu Smith <stu@cs.uml.edu> for raising the questions
+concerning the "new_from_string()" method (whose documentation was mis-
+leading and incomplete)!
 
 
 Final note:
