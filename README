@@ -1,0 +1,147 @@
+=========================================
+  Package "Math-MatrixReal" Version 1.0
+=========================================
+    for Perl version 5.000 and higher
+
+
+Contents of this file:
+----------------------
+
+    -   Legal stuff
+    -   Requirements
+    -   What does it do
+    -   Preliminary steps for use with Perl prior to version 5.002
+    -   How to install it
+    -   Version history
+    -   Plans for the future
+    -   Credits
+    -   Final note
+
+
+Legal stuff:
+------------
+
+Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
+This package is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+
+Requirements:
+-------------
+
+Perl version 5.000 or higher capable of "overloading" (overload.pm).
+
+
+What does it do:
+----------------
+
+Math::MatrixReal - Matrix of Reals
+
+Implements the data type "matrix of reals" (and consequently also
+"vector of reals") which can be used almost like any other basic
+Perl type thanks to OPERATOR OVERLOADING, i.e.,
+
+    $product = $matrix1 * $matrix2;
+
+does what you would like it to do (a matrix multiplication).
+
+Also features many important operations and methods: matrix norm,
+matrix transposition, matrix inverse, determinant of a matrix, order
+and numerical condition of a matrix, scalar product of vectors, vector
+product of vectors, vector length, projection of row and column vectors,
+a comfortable way for reading in a matrix from a file, the keyboard or
+your code, and many more.
+
+Allows to solve linear equation systems using an efficient algorithm
+known as "L-R-decomposition" and several approximative (iterative) methods.
+
+Features an implementation of Kleene's algorithm to compute the minimal
+costs for all paths in a graph with weighted edges (the "weights" being
+the costs associated with each edge).
+
+
+Preliminary steps for use with Perl prior to version 5.002:
+-----------------------------------------------------------
+
+Edit the "Makefile.PL" file in this package and change the line
+
+    'VERSION_FROM'	=> 'MatrixReal.pm',
+
+to
+
+    'VERSION'		=> '1.0',
+
+
+How to install it:
+------------------
+
+Please unpack and build this package OUTSIDE the Perl source and distribution
+tree!!
+
+ 1) Change directory to the directory that has been created by unpacking this
+    package ("Math-MatrixReal-1.0/").
+
+ 2) Type "perl Makefile.PL".
+    (Or whatever the name and path of your Perl 5 binary is)
+
+ 3) Type "make".
+
+ 4) Type "make install".
+
+
+Version history:
+----------------
+
+Version 1.0 is the initial release.
+
+
+Plans for the future:
+---------------------
+
+Define test cases (which is not trivial since results will depend on the
+local implementation of floating point arithmetics on a given machine!).
+
+Compute the characteristic polynom, eigenvalues and eigenvectors,
+orthogonal matrices, ...
+
+Deal with symmetric and with orthogonal matrices, multilinear functions, ...
+
+Create a module "Math::MatrixCplx" to deal with matrices of complex numbers...
+
+Deal with hermite matrices, multilinear functions, ...
+
+
+Credits:
+--------
+
+None yet except - as always - to Andreas Koenig <andreas.koenig@mind.de>
+for his relentless support and efforts as upload manager of the CPAN!
+
+
+Final note:
+-----------
+
+If you need any assistance or have any comments, problems, suggestions,
+findings, complaints, questions, insights, compliments or donations to give ;-)
+then please don't hesitate to send me a mail:
+
+sb@sdm.de (Steffen Beyer)
+
+In fact I'd be glad if you could drop me an e-mail when you are using this
+package, so I can see how much interest exists in it and how much time is
+reasonable to spend on its further development.
+
+Therefore, I would also be glad to know what you liked and what you disliked
+about this package!
+
+And I would also be very interested to know what your application is in
+which you found this package to be useful, just to get an idea what can
+all be done with it and in which direction it should be developed further.
+
+Many thanks in advance!!
+
+With kind regards,
+--
+    |s  |d &|m  |    Steffen Beyer <sb@sdm.de> (+49 89) 63812-244 fax -150
+    |   |   |   |    software design & management GmbH & Co. KG
+    |   |   |   |    Thomas-Dehler-Str. 27, 81737 Munich, Germany.
