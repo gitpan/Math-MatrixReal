@@ -15,6 +15,7 @@ t/basic.t
 t/bench
 t/bench_eigen.t
 t/bench_eigen2.t
+t/binary.t
 t/cofactor.t
 t/condition.t
 t/det.t
@@ -27,11 +28,15 @@ t/eigen_NxN.t
 t/exponent.t
 t/ext1.t
 t/funcs.pl
+t/gramian.t
 t/inverse.t
+t/is_LR.t
 t/minor.t
 t/norm.t
+t/orthogonal.t
 t/product.t
 t/quadratic.t
+t/spectral.t
 t/swap.t
 t/symmetric.t
 t/trace.t

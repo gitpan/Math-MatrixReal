@@ -23,6 +23,21 @@ sub random_matrix ($)
     return $M;
 }
 
+sub random_matrix2 ($)
+{
+    my ($size) = @_;
+    my $M = Math::MatrixReal->new($size, $size);
+    for (my $i=1; $i<=$size; $i++)
+    {
+        for (my $j=1; $j<=$size; $j++)
+        {
+            $M->assign($i,$j,rand()*$size);
+        }
+    }
+    return $M;
+}
+
+
 sub ok_matrix ($$$)
 {
   my ($no, $M1, $M2) = @_;
@@ -69,6 +84,10 @@ sub ok_eigenvectors ($$$$)
     ok_matrix("$no",$test,$test2);
     return;
 }
-
+sub similar($$$) {
+	my ($x,$y) = @_;
+	my $eps = shift || 1e-8;
+	abs($x - $y) < $eps ? return 1 : return 0;
+}
 1;
 

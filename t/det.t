@@ -55,3 +55,15 @@ $inverse = $matrix->inverse();
 $det = $matrix->det();
 ok( 7, (1/$det - $inverse->det()) < 1e-6 );
 
+
+############
+## det(A) = product of eigenvalues
+$matrix = random_matrix(20);
+$matrix += ~$matrix;
+$det1 = $matrix->det();
+my $ev = $matrix->sym_eigenvalues;
+my $det2=1;
+$ev->each( sub { $det2*=(shift); } );
+print "det1: $det1\n";
+print "det2: $det2\n";
+

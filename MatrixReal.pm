@@ -15,7 +15,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '1.5';
+$VERSION = '1.6';
 
 use overload
      'neg' => '_negate',
@@ -356,7 +356,7 @@ sub trace {
 }
 
 ## return the minor corresponding to $r and $c
-## cross row $r and col $c out, and return the $r-1 by $c-1 matrix
+## eliminate row $r and col $c , and return the $r-1 by $c-1 matrix
 sub minor {
 	croak "Usage: \$minor = \$matrix->minor(\$r,\$c);" unless (@_ == 3);
 	my ($matrix,$r,$c) = @_;
@@ -373,6 +373,11 @@ sub minor {
 	my ($i,$j) = (0,0);
 
 	## assign() might have been easier, but this should be faster
+	## the element can be in any of 4 regions compared to the eliminated
+	## row and col:
+	## above and to the left, above and to the right
+	## below and to the left, below and to the right
+
 	for(; $i < $rows; $i++){
 		for(;$j < $rows; $j++ ){
 			if( $i >= $r && $j >= $c ){
@@ -1353,6 +1358,8 @@ sub condition
     # 1st matrix MUST be the inverse of 2nd matrix (or vice-versa)
     # for a meaningful result!
 
+    # make this work when given no args
+
     croak "Usage: \$condition = \$matrix->condition(\$inverse_matrix);"
       if (@_ != 2);
 
@@ -1902,6 +1909,7 @@ sub _tridiagonal_QLimplicit
 	    }
 	    if ($m != $l)
 	    {
+		## why only allow 30 iterations?
 		croak("Too many iterations!") if ($iter++ >= 30);
 		my $g = ($d->[$l+1] - $d->[$l])
 		    / (2.0 * $e->[$l]);
@@ -2130,7 +2138,6 @@ sub tri_diagonalize ($;$)
     unless ($rows = $cols);
   croak "Matrix is not tridiagonal"
 	unless ($T->is_tridiagonal()); # DONE
-        #unless ($T->is_symmetric()); # TODO: Do real tridiag check (not symmetric)!
 
   my $EV;
   # Obtain/Creates the todo eigenvectors matrix
@@ -2315,7 +2322,7 @@ sub sym_eigenvalues ($)
     my ($rows, $cols) = ($M->[1], $M->[2]);
     
     croak "Matrix is not quadratic"
-	unless ($rows = $cols); # XXX: booboo
+	unless ($rows == $cols); 
     croak "Matrix is not symmetric"
         unless ($M->is_symmetric());
 
@@ -2447,6 +2454,69 @@ sub is_square($) {
         croak "Usage: \$matrix->is_square()" unless (@_ == 1);
 	return (shift)->is_quadratic();
 }
+
+sub is_LR($) {
+	croak "Usage: \$matrix->is_LR()" unless (@_ == 1);
+	return (shift)->[3] ? 1 : 0;
+}
+###
+sub is_normal{
+	my ($matrix) = @_;
+	my ($rows,$cols) = $matrix->dim;
+	return 0 unless ($rows == $cols);
+	
+	return 1 if ( ~$matrix * $matrix - $matrix * ~$matrix < 1e-8 );
+	return 0;
+	
+}
+sub is_skew_symmetric{
+	my ($m) = @_;
+	my ($rows, $cols) = $m->dim;
+	# if it is not quadratic it cannot be skew symmetric...
+	return 0 unless ($rows == $cols);
+	for (my $i = 1; $i < $rows; $i++) {
+		for (my $j = 0; $j < $i; $j++) {
+			return 0 unless ($m->[0][$i][$j] == -$m->[0][$j][$i]);
+		}
+	}
+	return 1;
+
+}
+####
+sub is_gramian{
+	my ($m) = @_;
+	my ($rows,$cols) = $m->dim;
+	my $neg=0;
+	# gramian matrix must be symmetric
+	return 0 unless $m->is_symmetric;
+
+	# must have all non-negative eigenvalues
+        my $ev = $m->eigenvalues;
+        $ev->each(sub { $neg++ if ((shift)<0) } );
+
+	return $neg ? 0 : 1;
+}
+sub is_binary{
+        my ($m) = @_;
+        my ($rows, $cols) = $m->dim;
+        for (my $i = 0; $i < $rows; $i++) {
+                for (my $j = 0; $j < $cols; $j++) {
+                        return 0 unless ($m->[0][$i][$j] == 1 || $m->[0][$i][$j] == 0);
+                }
+        }
+        return 1;
+
+}
+#### 
+sub spectral_radius {
+	my ($matrix) = @_;
+	my ($r,$c) = $matrix->dim;
+	my $ev = $matrix->eigenvalues;
+	my $radius=0;
+	$ev->each(sub { my $x = shift; $radius = $x if (abs($x) > $radius); } );
+	return $radius;
+}
+
 
                 ########################################
                 #                                      #
@@ -3422,6 +3492,16 @@ absolute values of every element.
 
 =item *
 
+C<$matrix-E<gt>spectral_radius();>
+
+Returns the maximum value of the absolute value of all eigenvalues.
+Currently this computes B<all> eigenvalues, then sifts through them
+to find the largest in absolute value. Needless to say, this is very
+inefficient, and in the future an algorithm that computes only the 
+largest eigenvalue may be implemented.
+
+=item *
+
 C<$matrix1-E<gt>transpose($matrix2);>
 
 Calculates the transposed matrix of matrix $matrix2 and stores
@@ -3654,6 +3734,17 @@ A matrix plus its transpose is always symmetric.
 
 =item *
 
+C<$matrix-E<gt>is_skew_symmetric();>
+
+Returns a boolean value indicating if the given matrix is
+skew symmetric. By definition, a matrix is symmetric if and only
+if (B<M>[I<i>,I<j>]=B<-M>[I<j>,I<i>]). This is equivalent to
+C<($matrix == -(~$matrix))> but without memory allocation.
+Only quadratic matrices can be skew symmetric.
+
+
+=item *
+
 C<$matrix-E<gt>is_diagonal();>
 
 Returns a boolean value indicating if the given matrix is
@@ -3700,6 +3791,29 @@ method multiplies the matrix by it's transpose, and returns true if this
 turns out to be the identity matrix, false otherwise.
 Only quadratic matrices can orthogonal.
 
+=item *
+
+C<$matrix-E<gt>is_binary();>
+
+Returns a boolean value indicating if the given matrix is binary.
+A matrix is binary if it contains only zeroes or ones. 
+
+=item *
+
+C<$matrix-E<gt>is_gramian();>
+
+Returns a boolean value indicating if the give matrix is Gramian.
+A matrix C<$A> is Gramian if and only if there exists a
+square matrix C<$B> such that C<$A = ~$B*$B>. This is equivalent to
+checking if C<$A> is symmetric and has all nonnegative eigenvalues, which
+is what Math::MatrixReal uses to check for this property.
+
+=item *
+
+C<$matrix-E<gt>is_LR();>
+
+Returns a boolean value indicating if the matrix is an LR decomposition
+matrix.
 
 
 =head2 Eigensystems
@@ -3796,7 +3910,7 @@ computed.
 
 C<$l = $T-E<gt>tri_eigenvalues();>
 
-This method compute the eigenvalues of the symmetric
+This method computesthe eigenvalues of the symmetric
 tridiagonal matrix B<T>. On output, $l is a vector
 containing the eigenvalues (similar to C<sym_eigenvalues()>).
 This method is much more efficient than tri_diagonalize()
@@ -4842,12 +4956,13 @@ Uses the "one"-norm for matrices and Perl's built-in "abs()" for scalars.
 
 =head1 SEE ALSO
 
-Math::PARI(3), Math::MatrixBool(3), DFA::Kleene(3), Math::Kleene(3),
-Set::IntegerRange(3), Set::IntegerFast(3).
+Math::VectorReal, Math::PARI, Math::MatrixBool,
+DFA::Kleene, Math::Kleene,
+Set::IntegerRange, Set::IntegerFast .
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.5.
+This man page documents Math::MatrixReal version 1.6.
 
 The latest version can always be found at
 http://leto.net/code/Math-MatrixReal/

@@ -69,6 +69,10 @@ sub ok_eigenvectors ($$$$)
     ok_matrix("$no",$test,$test2);
     return;
 }
-
+sub similar($$$) {
+	my ($x,$y) = @_;
+	my $eps = shift || 1e-8;
+	abs($x - $y) < $eps ? return 1 : return 0;
+}
 1;
 
