@@ -1,63 +1,15 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
-
-######################### We start with some black magic to print on failure.
-
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
-
-BEGIN { $| = 1; print "1..7\n"; }
+BEGIN { $| = 1; print "1..8\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Math::MatrixReal;
 $loaded = 1;
 print "ok 1\n";
 
-######################### End of black magic.
+do 'funcs.pl';
 
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
-
-### First, some preparation
-
-my $DEBUG2 = 0;
-my $DEBUG = 0;
-# Not activated in distributions...
 my $BENCH = 0; # Some basic benchmarks on operations
+my $DEBUG2 = 1;
+my $DEBUG = 0;
 my $bsize = 100; # For somebenches
-
-sub ok ($$) {
-    my($number, $result) = @_ ;
-    
-    print "ok $number\n"     if $result ;
-    print "not ok $number\n" if !$result ;
-}
-
-sub ok_matrix ($$$)
-{
-  my ($no, $M1, $M2) = @_;
-  my $tmp = $M1->shadow();
-  $tmp->subtract($M1,$M2);
-  my $v = $tmp->norm_one();
-  ok($no, ($v < 1e-10));
-  print " ($no: |Delta| = $v)\n" if $DEBUG;
-}
-
-sub random_matrix ($)
-{
-    my ($size) = @_;
-    my $M = Math::MatrixReal->new($size, $size);
-    for (my $i=1; $i<=$size; $i++)
-    {
-	for (my $j=1; $j<=$size; $j++)
-	{
-	    $M->assign($i,$j,rand());
-	}
-    }
-    return $M;
-}
-
-### We should use the black magic now...
 
 #
 # Trying some matrixes creation extracted from the pod...
@@ -125,6 +77,15 @@ if (($dim, $x, $B) = $LR_m33->solve_LR($b))
     }
   }
 ok_matrix(7, $test, $b);
+
+my $matrix1 = Math::MatrixReal->new_from_string(<<MATRIX);
+[ 1 0 0 ]
+[ 0 2 0 ]
+[ 0 0 3 ]
+MATRIX
+my $matrix2 = Math::MatrixReal->new_diag( [ 1, 2, 3 ] );
+ok_matrix(8, $matrix1,$matrix2);
+
 
 
 if ($BENCH)

@@ -4,6 +4,12 @@
 
 Plans for the future:
 ---------------------
+ * Jonathan Leto ideas:
+
+Row echelon form
+Column echelon form
+Hard: Jordan form
+More examples in docs
 
  * Steffen Beyer ideas:
 
@@ -71,6 +77,8 @@ example, sections for
  - linear system solving,
  - eigensystems,
  - Kleene transformation, etc.
+
+UPDATE: working on it -- leto
 
 
 [1] What I mean by "permutation matrix" is a matrix where only a

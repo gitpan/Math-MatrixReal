@@ -1,100 +1,13 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
-
-######################### We start with some black magic to print on failure.
-
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
-
-BEGIN { $| = 1; print "1..12\n"; }
+BEGIN { $| = 1; print "1..16\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Math::MatrixReal;
 $loaded = 1;
 print "ok 1\n";
 
-######################### End of black magic.
-
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
-
-### First, some preparation
+do 'funcs.pl';
 
 my $DEBUG2 = 0;
-my $DEBUG = 0;
 my $bigsize = 30; # Size of big matrix tests (be careful: n^3!)
-
-# Useful test functions
-
-sub ok ($$) {
-    my($number, $result) = @_ ;
-    
-    print "ok $number\n"     if $result ;
-    print "not ok $number\n" if !$result ;
-}
-
-sub ok_matrix ($$$)
-{
-  my ($no, $M1, $M2) = @_;
-  my $tmp = $M1->shadow();
-  $tmp->subtract($M1,$M2);
-  my $v = $tmp->norm_one();
-  ok($no, ($v < 1e-10));
-  print " ($no: |Delta| = $v)\n" if $DEBUG;
-}
-
-sub ok_matrix_orthogonal ($$)
-{
-  my ($no, $M) = @_;
-  my $tmp = $M->shadow();
-  $tmp->one();
-  my $transp = $M->shadow();
-  $transp->transpose($M);
-  $tmp->subtract($M->multiply($transp), $tmp);
-  my $v = $tmp->norm_one();
-  ok($no, ($v < 1e-10));
-  print " ($no: |M * ~M - I| = $v)\n" if $DEBUG;
-}
-
-sub ok_eigenvectors ($$$$)
-  {
-    my ($no, $M, $L, $V) = @_;
-    # Now check that all of them correspond to eigenvalue * eigenvector
-    my ($rows, $columns) = $M->dim();
-    unless ($rows == $columns) {
-	ok("$no", 0);
-	return;
-    }
-    # Computes the result of all eigenvectors...
-    my $test = $M * $V;
-    my $test2 = $V->clone();
-    for (my $i = 1; $i <= $columns; $i++)
-    {
-	my $lambda = $L->element($i,1);
-	for (my $j = 1; $j <= $rows; $j++)
-	{ # Compute new vector via lambda * x
-	    $test2->assign($j, $i, $lambda * $test2->element($j, $i));
-	}
-      }
-    ok_matrix("$no",$test,$test2);
-    return;
-  }
-
-sub random_matrix ($)
-{
-    my ($size) = @_;
-    my $M = Math::MatrixReal->new($size, $size);
-    for (my $i=1; $i<=$size; $i++)
-    {
-	for (my $j=1; $j<=$size; $j++)
-	{
-	    $M->assign($i,$j,rand());
-	}
-    }
-    return $M;
-}
-    
-### We should use the black magic now...
 
 # test on random bigger matrix
 print "Matrix ".$bigsize."x$bigsize for eigenvalues & eigenvectors computation:\n" if $DEBUG;
@@ -135,5 +48,56 @@ my $altLbig = $altTbig->tri_eigenvalues();
 ok_matrix(11, $altLbig, $Lbig);
 my $altLbig_2 = $big->sym_eigenvalues();
 ok_matrix(12, $altLbig_2, $Lbig_2);
+
+##############
+#### lower tri
+my $eigen = Math::MatrixReal->new_from_string(<<MAT);
+[  0.000000000000E+00 ]
+[  3.000000000000E+00 ]
+[  4.000000000000E+00 ]
+[  5.000000000000E+00 ]
+[  1.000000000000E+00 ]
+MAT
+$matrix = Math::MatrixReal->new_from_string(<<"MATRIX");
+[ 0 0 0 0 0 ]
+[ 0 3 0 0 0 ]
+[ 0 0 4 0 0 ]
+[ 1 0 0 5 0 ]
+[ 1 1 1 1 1 ]
+MATRIX
+ok_matrix(13, $eigen, $matrix->eigenvalues );
+
+$matrix = $eigen->new_from_rows ( [[1,0,0],[0,2,0],[0,0,3]] );
+$eigen = $eigen->new_from_string(<<MAT);
+[ 1 ]
+[ 2 ]
+[ 3 ]
+MAT
+ok_matrix(14, $eigen, $matrix->eigenvalues );
+
+####################
+## upper tri
+$matrix = Math::MatrixReal->new_from_string(<<"MATRIX");
+[ 1 0 0 0 1 ]
+[ 0 2 0 0 2 ]
+[ 0 0 3 0 0 ]
+[ 0 0 0 4 0 ]
+[ 0 0 0 0 5 ]
+MATRIX
+$eigen = Math::MatrixReal->new_from_string(<<MAT);
+[ 1 ]
+[ 2 ]
+[ 3 ]
+[ 4 ]
+[ 5 ]
+MAT
+
+ok_matrix(15, $eigen, $matrix->eigenvalues );
+
+######################
+#### diag
+$matrix = $matrix->new_diag ( [ 10, 20, 30 ] );
+$eigen =  $matrix->new_from_cols ( [ [ 10, 20, 30 ] ] );
+ok_matrix(16, $eigen, $matrix->eigenvalues );
 
 

@@ -269,7 +269,7 @@ Dijkstra's algorithm for shortest paths.
 =head1 AUTHOR
 
 This document is based on lecture notes and has been put into
-POD format by Steffen Beyer <sb@sdm.de>.
+POD format by Steffen Beyer <sb@engelschall.com>.
 
 =head1 COPYRIGHT
 

@@ -1,0 +1,51 @@
+
+Changes in v1.4 -- leto
+--------------------------
+	* Steffen Beyer gave maintainer-ship to Jonathan Leto
+	* exponent() function added
+	* trace() function added
+	* "**" and "**="  overloaded to exponent()
+	* $matrix ** -1 is now a quick way to compute the inverse, if it exists
+	* new_from_rows and new_from_cols integrated from Math::MatrixReal::Ext1
+	* is_diagonal() function added
+	* is_tridiagonal() function added
+	* each() function added
+	* each_diag() function added
+	* put functions used by all the test scripts into funcs.pl instead
+		of all of them having copy+paste code
+	* t/inverse.t created 
+	* t/diag.t created 
+	* t/exponent.t created
+	* t/trace.t created
+	* t/ext1.t created
+	* some documentation spelling errors corrected
+	* perl operators exp(),sin(),cos() overloaded 
+		only works with diagonal matrices for now
+	* new_diag() function added
+	* is_upper_triangular() function added
+	* is_lower_triangular() function added
+	* t/triang.t created
+	* t/det.t created
+	* inverse() function added
+	* det() function added
+		should be much faster for diagonal and triangular matrices
+	* tri_diagonalize() tri_eigenvalues() and now do real tridiag check, as per TODO
+	* t/minor.t created
+	* t/cofactor.t created
+	* t/adjoint.t created
+	* t/quadratic.t created
+	* norm_sum() function added
+	* t/norm.t created
+	* check if $rows and $cols are integers in new()
+	* t/condition.t created
+	* t/product.t created
+	* eigenvalues() function added
+	* t/eigen_NxN.t - added test for eigenvalues()
+	* swap_row() function added
+	* swap_col() function added
+	* t/swap.t created
+	* t/orthogonal.t created
+	* is_orthogonal() function added
+	
+
+	

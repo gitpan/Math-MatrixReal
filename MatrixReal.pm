@@ -1,27 +1,21 @@
-
 #  Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
 #  Copyright (c) 1999 by Rodolphe Ortalo. All rights reserved.
+#  Copyright (c) 2001,2002 by Jonathan Leto. All rights reserved.
 #  This package is free software; you can redistribute it and/or
 #  modify it under the same terms as Perl itself.
 
 package Math::MatrixReal;
 
 use strict;
+use Carp;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
-
 require Exporter;
 
 @ISA = qw(Exporter);
-
 @EXPORT = qw();
-
 @EXPORT_OK = qw(min max);
-
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-
-$VERSION = '1.3a5';
-
-use Carp;
+$VERSION = '1.4';
 
 use overload
      'neg' => '_negate',
@@ -33,9 +27,11 @@ use overload
        '+' => '_add',
        '-' => '_subtract',
        '*' => '_multiply',
+      '**' => '_exponent',
       '+=' => '_assign_add',
       '-=' => '_assign_subtract',
       '*=' => '_assign_multiply',
+     '**=' => '_assign_exponent',
       '==' => '_equal',
       '!=' => '_not_equal',
        '<' => '_less_than',
@@ -49,6 +45,9 @@ use overload
       'gt' => '_greater_than',
       'ge' => '_greater_than_or_equal',
        '=' => '_clone',
+     'exp' => '_exp',
+     'sin' => '_sin',
+     'cos' => '_cos',
 'fallback' =>   undef;
 
 sub new
@@ -56,18 +55,15 @@ sub new
     croak "Usage: \$new_matrix = Math::MatrixReal->new(\$rows,\$columns);"
       if (@_ != 3);
 
-    my $proto = shift;
+    my ($proto,$rows,$cols) =  @_;
     my $class = ref($proto) || $proto || 'Math::MatrixReal';
-    my $rows = shift;
-    my $cols = shift;
-    my($i,$j);
-    my($this);
+    my($i,$j,$this);
 
-    croak "Math::MatrixReal::new(): number of rows must be > 0"
-      if ($rows <= 0);
+    croak "Math::MatrixReal::new(): number of rows must be integer > 0"
+      unless ($rows > 0 and  $rows == int($rows) );
 
-    croak "Math::MatrixReal::new(): number of columns must be > 0"
-      if ($cols <= 0);
+    croak "Math::MatrixReal::new(): number of columns must be integer > 0"
+      unless ($cols > 0 and $cols == int($cols) );
 
     $this = [ [ ], $rows, $cols ];
 
@@ -89,24 +85,36 @@ sub new
     bless($this, $class);
     return($this);
 }
+sub new_diag {
+	croak "Usage: \$new_matrix = Math::MatrixReal->new_diag( [ 1, 2, 3] );"
+		unless (@_ == 2 );
+	my ($proto,$diag) = @_;
+	my $class = ref($proto) || $proto || 'Math::MatrixReal';
+	my $matrix;
+	my $n = scalar(@$diag);
+
+	croak "Math::MatrixReal::new_diag(): Third argument must be an arrayref" 
+		unless (ref($diag) eq "ARRAY");
+
+	$matrix = Math::MatrixReal->new($n,$n);
+	$matrix = $matrix->each_diag(  sub { shift @$diag } );
+	return $matrix;
+}
 
 sub new_from_string
 {
     croak "Usage: \$new_matrix = Math::MatrixReal->new_from_string(\$string);"
       if (@_ != 2);
 
-    my $proto  = shift;
+    my ($proto,$string)  = @_;
     my $class  = ref($proto) || $proto || 'Math::MatrixReal';
-    my $string = shift;
     my($line,$values);
     my($rows,$cols);
     my($row,$col);
-    my($warn);
-    my($this);
+    my($warn,$this);
 
-    $warn = 0;
-    $rows = 0;
-    $cols = 0;
+    $warn = $rows = $cols = 0;
+
     $values = [ ];
     while ($string =~ m!^\s*
   \[ \s+ ( (?: [+-]? \d+ (?: \. \d* )? (?: E [+-]? \d+ )? \s+ )+ ) \] \s*? \n
@@ -145,6 +153,132 @@ sub new_from_string
         }
     }
     return($this);
+}
+# from Math::MatrixReal::Ext1
+sub new_from_cols {
+	my $proto = shift;
+	my $class = ref($proto) || $proto;
+	my $ref_to_cols = shift;
+	my @cols = @{$ref_to_cols};
+
+	my $cols = scalar( @cols );
+
+	my $matrix = 0;
+	my $rows = 0;
+
+	# each arg is a column, but we don't know what form they're
+	# in yet
+
+	my $col_index = 0;
+	foreach my $col (@cols) {
+		# it's one-based
+		$col_index ++;
+		my $ref = ref( $col ) ;
+
+		if ( $ref =~ /^Math::MatrixReal/ ) {
+			# it's already a Math::MatrixReal something
+		} elsif ( $ref eq 'ARRAY' ) {
+			my @array = @$col;
+			my $length = scalar( @array );
+			$col = $class->new_from_string( '[ '. join( " ]\n[ ", @array) ." ]\n" );
+		} elsif ( $ref eq '' ) {
+			# we hope this is a string
+			$col = $class->new_from_string( $col );
+		} else {
+			# we have no idea, error time!
+			croak __PACKAGE__."::new_from_cols(): sorry, I have no clue what you sent me!  I only know how to deal with array refs, strings, and things that are already in the Math::MatrixReal hierarchy \n";
+		}
+		my ($length, $one) = $col->dim;
+		croak __PACKAGE__."::new_from_cols(): This isn't a column vector"
+			  unless ($one == 1) ;
+
+		# if we already have a height, check that this is the same
+		if ($rows) {
+			croak __PACKAGE__."::new_from_cols(): This column vector has $length elements and an earlier one had $rows"
+			  unless ($length == $rows) ;
+		}
+		# else, we have a new height 
+		# TODO: maybe this should check for zero
+		else {
+			$rows = $length;
+		}
+
+		# create the matrix the first time through
+		unless ($matrix) {
+			$matrix = $class->new($rows, $cols);
+		}
+
+		foreach my $row_index (1..$rows){
+			my $value = $col->element($row_index, 1);
+			$matrix->assign($row_index, $col_index, $value);
+		}
+
+	}
+	return $matrix;
+}
+#from Math::MatrixReal::Ext1
+sub new_from_rows {
+	my $proto = shift;
+	my $class = ref($proto) || $proto;
+	my $ref_to_rows = shift;
+	my @rows = @{$ref_to_rows};
+
+	my $rows = scalar( @rows );
+
+	my $matrix = 0;
+	my $cols = 0;
+
+	# each arg is a column, but we don't know what form they're
+	# in yet
+
+	my $row_index = 0;
+	foreach my $row (@rows) {
+		# it's one-based
+		$row_index ++;
+		my $ref = ref( $row ) ;
+
+		if ( $ref =~ /^Math::MatrixReal/ ) {
+			# it's already a Math::MatrixReal something
+		}
+		elsif ( $ref eq 'ARRAY' ) {
+			my @array = @$row;
+			my $length = scalar( @array );
+			$row = $class->new_from_string( '[ '. join( " ", @array) ." ]\n" );
+		}
+		elsif ( $ref eq '' ) {
+			# we hope this is a string
+			$row = $class->new_from_string( $row );
+		}
+		else {
+			# we have no idea, error time!
+			croak "Math::MatrixReal::new_from_rows(): Argument must be an arrayref,string or Math::MatrixReal object";
+		}
+		my ($one, $length) = $row->dim;
+		croak __PACKAGE__."::new_from_rows(): This isn't a column vector"
+			  unless ($one == 1) ;
+
+		# if we already have a height, check that this is the same
+		if ($cols) {
+			croak "Math::MatrixReal::new_from_rows(): Column mismatch $length != $cols"
+			  unless ($length == $cols) ;
+		}
+		# else, we have a new width  FIXME maybe this should check for zero
+		else {
+			$cols = $length;
+		}
+
+		# create the matrix the first time through
+		unless ($matrix) {
+			$matrix = $class->new($rows, $cols);
+		}
+
+		foreach my $col_index (1..$cols){
+			my $value = $row->element(1, $col_index);
+			$matrix->assign($row_index, $col_index, $value);
+		}
+
+	}
+	return $matrix;
 }
 
 sub shadow
@@ -201,6 +335,213 @@ sub clone
     return($temp);
 }
 
+## trace() : return the sum of the diagonal elements
+sub trace {
+    croak "Usage: \$trace = \$matrix->trace();" if (@_ != 1);
+
+    my $matrix = shift;
+    my($rows,$cols) = ($matrix->[1],$matrix->[2]);
+    my $trace = 0;
+    my($j);
+
+    croak "Math::MatrixReal::trace(): matrix is not quadratic"
+      unless ($rows == $cols);
+
+
+    for ( $j = 0; $j < $cols; $j++ )
+    {
+        $trace += $matrix->[0][$j][$j];
+    }
+    return($trace);
+}
+
+## return the minor corresponding to $r and $c
+## cross row $r and col $c out, and return the $r-1 by $c-1 matrix
+sub minor {
+	croak "Usage: \$minor = \$matrix->minor(\$r,\$c);" unless (@_ == 3);
+	my ($matrix,$r,$c) = @_;
+	my ($rows,$cols) = $matrix->dim();
+
+        croak "Math::MatrixReal::minor(): \$matrix must be at least 2x2"
+                unless ($rows > 1 and $cols > 1);
+	croak "Math::MatrixReal::minor(): $r and $c must be positive" 
+		unless ($r > 0 and $c > 0 );
+	croak "Math::MatrixReal::minor(): matrix has no $r,$c element" 
+		unless ($r <= $rows and $c <= $cols );
+
+        my $minor = new Math::MatrixReal($rows-1,$cols-1);
+	my ($i,$j) = (0,0);
+
+	## assign() might have been easier, but this should be faster
+	for(; $i < $rows; $i++){
+		for(;$j < $rows; $j++ ){
+			if( $i >= $r && $j >= $c ){
+				$minor->[0][$i-1][$j-1] = $matrix->[0][$i][$j];
+			} elsif ( $i >= $r && $j < $c ){
+				$minor->[0][$i-1][$j] = $matrix->[0][$i][$j];
+			} elsif ( $i < $r && $j < $c ){
+				$minor->[0][$i][$j] = $matrix->[0][$i][$j];
+			} elsif ( $i < $r && $j >= $c ){
+				$minor->[0][$i][$j-1] = $matrix->[0][$i][$j];
+			} else {
+				croak "Very bad things";
+			}
+		}
+		$j = 0;
+	}
+	return ($minor);
+}
+sub swap_col {
+        croak "Usage: \$matrix->swap_col(\$col1,\$col2); " unless (@_ == 3);
+        my ($matrix,$col1,$col2) = @_;
+        my ($rows,$cols) = $matrix->dim();
+        my (@temp);
+
+        croak "Math::MatrixReal::swap_col(): col index is not valid"
+                unless ( $col1 <= $cols && $col2 <= $cols &&
+                         $col1 == int($col1) &&
+                         $col2 == int($col2) );
+        $col1--;$col2--;
+        for(my $i=0;$i < $rows;$i++){
+                $temp[$i] = $matrix->[0][$i][$col1];
+                $matrix->[0][$i][$col1] = $matrix->[0][$i][$col2];
+                $matrix->[0][$i][$col2] =  $temp[$i];
+        }
+}
+sub swap_row {
+	croak "Usage: \$matrix->swap_row(\$row1,\$row2); " unless (@_ == 3);
+	my ($matrix,$row1,$row2) = @_;
+	my ($rows,$cols) = $matrix->dim();
+	my (@temp);	
+
+	croak "Math::MatrixReal::swap_row(): row index is not valid"
+		unless ( $row1 <= $rows && $row2 <= $rows && 
+			 $row1 == int($row1) && 
+			 $row2 == int($row2) ); 
+	$row1--;$row2--;	
+	for(my $j=0;$j < $cols;$j++){
+		$temp[$j] = $matrix->[0][$row1][$j];
+		$matrix->[0][$row1][$j] = $matrix->[0][$row2][$j];
+		$matrix->[0][$row2][$j] =  $temp[$j];
+	}
+}
+# TODO: docs
+# no worky
+sub assign_row {
+	croak "Usage: \$matrix->assign_row(\$row,\$row_vec);"  unless (@_ == 3);
+	my ($matrix,$row,$row_vec) = @_;
+	my ($rows1,$cols1) = $matrix->dim();
+	my ($rows2,$cols2) = $row_vec->dim();
+	
+	croak "Math::MatrixReal::assign_row(): row mismatch" if ($rows1 != $rows2);
+	croak "Math::MatrixReal::assign_row(): not a row vector" unless( $cols2 == 1);
+
+	@{$matrix->[0][--$row]} = @{$row_vec->[0][0]};
+
+}
+# returns the number of zeroes in a row
+sub _count_zeroes_row {
+	my ($matrix) = @_;
+	my ($rows,$cols) = $matrix->dim();
+	my $count = 0;	
+	croak "_count_zeroes_row(): only 1 row, buddy" unless ($rows == 1);
+
+	for(my $i=0;$i < $cols;$i++){
+		$count++ unless $matrix->[0][0][$i];
+	}
+	return $count;
+}
+## divide a row by it's largest abs() element
+sub _normalize_row {
+	my ($matrix) = @_;
+	my ($rows,$cols) = $matrix->dim();
+	my $new_row = Math::MatrixReal->new(1,$cols);
+
+       	my $big = abs($matrix->[0][0][0]);
+	for(my $j=0;$j < $cols; $j++ ){
+		$big = $big < abs($matrix->[0][0][$j])
+			? abs($matrix->[0][0][$j]) : $big;
+	}
+	next unless $big;
+	# now $big is biggest element in row
+	for(my $j = 0;$j < $cols; $j++ ){
+		$new_row->[0][0][$j]  = $matrix->[0][0][$j] / $big;
+	}
+	return $new_row;
+
+}
+#### doesn't work
+=crap
+sub row_echelon {
+	my ($matrix) = @_;
+	my ($rows,$cols) = $matrix->dim();
+	my $big;
+	my $tmprow;
+
+	for(my $i = 0;$i < $rows; $i++ ){
+		$big = abs($matrix->[0][$i][0]);
+		for(my $j=0;$j < $cols; $j++ ){
+			$big = $big < abs($matrix->[0][$i][$j]) 
+				? abs($matrix->[0][$i][$j]) : $big;
+		}
+		next unless $big;
+		# now $big is biggest element in row
+                for(my $j = 0;$j < $cols; $j++ ){
+                	$matrix->[0][$i][$j]  /= $big;
+                }
+		# now all elements are between [-1,1] and 
+		# dependence can be easily checked
+	}
+
+	for(my $i = 0;$i < $rows; $i++ ){
+		for(my $k = 0; $k < $rows; $k++ ){
+			next if ($i == $k);
+			print "i,k = $i,$k\n";
+			$tmprow = $matrix->row($i+1) + $matrix->row($k+1);
+			print "tmprow= $tmprow\n";
+			print "tmprow has " . $tmprow->_count_zeroes_row . " zeroes.\n";
+			print "i+1 has " . $matrix->row($i+1)->_count_zeroes_row . " zeroes\n";
+			print "k+1 has " . $matrix->row($k+1)->_count_zeroes_row . " zeroes\n";
+
+			$tmprow = $tmprow->_normalize_row;	
+			if( $tmprow->norm_sum == 0 ){
+				for(my $j=0;$j<$cols;$j++){
+					$matrix->[0][$k][$j] = 0;
+				}
+			} elsif ( $tmprow->_count_zeroes_row > $matrix->row($i+1)->_count_zeroes_row ){
+				print "tmprow has more zeroes, replacing row " . ($i+1) . "\n";
+				## assign row	
+				$matrix->assign_row($i+1,$tmprow);
+			} elsif ( $tmprow->_count_zeroes_row > $matrix->row($k+1)->_count_zeroes_row ){
+				print "tmprow has more zeroes, replacing row " . ($k+1) . "\n";
+				$matrix->assign_row($k+1,$tmprow);
+			}	
+					
+		}
+	}
+	return $matrix;
+}
+=cut
+sub cofactor {
+	my ($matrix) = @_;
+	my ($rows,$cols) = $matrix->dim();
+	
+	croak "Math::MatrixReal::cofactor(): Matrix is not quadratic" 
+		unless ($rows == $cols);	
+
+	# black magic ahead
+	my $cofactor = $matrix->each( sub { my($v,$i,$j) = @_;
+					$i++;$j++; # each() gives zero-based indices
+					($i+$j) % 2 == 0 ? $matrix->minor($i,$j)->det()
+					: -1*$matrix->minor($i,$j)->det(); 
+					} );
+	return ($cofactor);
+}
+
+sub adjoint {
+	my ($matrix) = @_;
+	return ~($matrix->cofactor);
+}
 sub row
 {
     croak "Usage: \$row_vector = \$matrix->row(\$row);"
@@ -364,6 +705,15 @@ sub norm_one  #  maximum of sums of each column
     }
     return($max);
 }
+## sum of absolute value of every element
+sub norm_sum {
+	croak "Usage: \$norm_sum = \$matrix->norm_sum();"
+		unless (@_ == 1);
+	my ($matrix) = @_;
+	my $norm = 0;
+	$matrix->each( sub { $norm+=abs(shift);	} );
+	return $norm;
+}
 
 sub norm_max  #  maximum of sums of each row
 {
@@ -408,9 +758,56 @@ sub negate
         }
     }
 }
+## each(): evaluate a coderef on each element and return a new matrix
+## of said 
+sub each {
+	croak "Usage: \$new_matrix = \$matrix->each( \&sub );" unless (@_ == 2 );
+	my($matrix,$function) = @_;
+	my($rows,$cols) = ($matrix->[1],$matrix->[2]);
+	my($new_matrix) = $matrix->clone();
 
-sub transpose
-{
+	croak "Math::MatrixReal::each(): argument is not a sub reference" unless ref($function);
+	$new_matrix->_undo_LR();
+
+	for (my $i = 0; $i < $rows; $i++ ) {
+		for (my $j = 0; $j < $cols; $j++ ) {
+			no strict 'refs';
+			$new_matrix->[0][$i][$j] = &{ $function }($matrix->[0][$i][$j],$i,$j) ;
+		}
+	}
+	return ($new_matrix);
+}
+## each_diag(): same as each() but only diag elements
+sub each_diag { 
+        croak "Usage: \$new_matrix = \$matrix->each_diag( \&sub );" unless (@_ == 2 );
+        my($matrix,$function) = @_;
+        my($rows,$cols) = ($matrix->[1],$matrix->[2]);
+        my($new_matrix) = $matrix->clone();
+
+        croak "Math::MatrixReal::each(): argument is not a sub reference" unless ref($function);
+	croak "Matrix is not quadratic" unless ($rows == $cols);
+
+        $new_matrix->_undo_LR();
+
+        for (my $i = 0; $i < $rows; $i++ ) {
+                for (my $j = 0; $j < $cols; $j++ ) {
+			next unless ($i == $j);
+                        no strict 'refs';
+                        $new_matrix->[0][$i][$j] = &{ $function }($matrix->[0][$i][$j],$i,$j) ;
+                }
+        }
+        return ($new_matrix);
+}
+
+## Make computing the inverse more user friendly
+sub inverse {
+	croak "Usage: \$inverse = \$matrix->inverse();" unless (@_ == 1);
+	my ($matrix) = @_;
+	return $matrix->decompose_LR->invert_LR;
+}
+
+sub transpose {
+
     croak "Usage: \$matrix1->transpose(\$matrix2);"
       if (@_ != 2);
 
@@ -555,6 +952,59 @@ sub multiply
         }
     }
     return($temp);
+}
+
+sub exponent {       
+	croak "Usage: \$matrix_exp = \$matrix1->exponent(\$integer);" if(@_ != 2 );
+	my($matrix,$argument) = @_;
+	my($rows,$cols) = ($matrix->[1],$matrix->[2]);
+	my($name) = "'**'"; #&_trace($name,$object,$argument,$flag);
+	my($temp) = $matrix->clone();       
+
+	croak "Matrix is not quadratic" unless ($rows == $cols);
+	croak "Exponent must be integer" unless ($argument =~ m/^[+-]?\d+$/ );
+
+	return($matrix) if ($argument == 1);
+
+	$temp->_undo_LR();
+
+	# negative exponent is (A^-1)^n
+	if( $argument < 0 ){ 
+		my $LR = $matrix->decompose_LR();
+		my $inverse = $LR->invert_LR();
+		unless (defined $inverse){
+			carp "Matrix has no inverse";
+			return undef;	
+		}
+		$temp = $inverse->clone();
+		if( $inverse ){
+			return($inverse) if ($argument == -1);
+				for( 2 .. abs($argument) ){ 
+					$temp = multiply($inverse,$temp);
+			    	}
+		    	return($temp);
+        	} else {   
+			# TODO: is this the right behaviour?
+            		carp "Cannot compute negative exponent, inverse does not exist";
+			return undef;
+		}
+	# matrix to zero power is identity matrix
+	} elsif( $argument == 0 ){
+		$temp->one();
+		return ($temp);
+	}
+
+	# if it is diagonal, just raise diagonal entries to power
+	if( $matrix->is_diagonal() ){
+		$temp = $temp->each_diag( sub { (shift)**$argument } );
+		return ($temp);
+	
+	} else {
+		for( 2 .. $argument ){
+			$temp = multiply($matrix,$temp);
+		}
+		return ($temp);
+	}
 }
 
 sub min
@@ -922,6 +1372,28 @@ sub condition
     return( $matrix1->norm_one() * $matrix2->norm_one() );
 }
 
+## easy to use determinant
+## very fast if matrix is diagonal or triangular
+sub det {
+	croak "Usage: \$determinant = \$matrix->det_LR();" unless (@_ == 1);
+	my ($matrix) = @_;
+	my ($rows,$cols) = $matrix->dim();
+	my $det = 1;
+
+	croak "Math::MatrixReal::det(): Matrix is not quadratic"
+		unless ($rows == $cols);
+	
+	# diagonal will match too	
+	if( $matrix->is_upper_triangular() ){
+		$matrix->each_diag( sub { $det*=shift; } );
+	} elsif ( $matrix->is_lower_triangular() ){
+		$matrix->each_diag( sub { $det*=shift; } );
+	} else {
+		return $matrix->decompose_LR->det_LR();
+	}
+	return $det;
+}
+
 sub det_LR  #  determinant of LR decomposition matrix
 {
     croak "Usage: \$determinant = \$LR_matrix->det_LR();"
@@ -1285,7 +1757,7 @@ sub solve_RM  #  Relaxation Method
     return($xn_vector);
 }
 
-# Core householder reduction routine (when eagenvector
+# Core householder reduction routine (when eigenvector
 # are wanted).
 # Adapted from: Numerical Recipes, 2nd edition.
 sub _householder_vectors ($)
@@ -1474,7 +1946,7 @@ sub _tridiagonal_QLimplicit
     return;
 }
 
-# Core householder reduction routine (when eagenvector
+# Core householder reduction routine (when eigenvector
 # are NOT wanted).
 sub _householder_values ($)
 {
@@ -1657,7 +2129,8 @@ sub tri_diagonalize ($;$)
   croak "Matrix is not quadratic"
     unless ($rows = $cols);
   croak "Matrix is not tridiagonal"
-        unless ($T->is_symmetric()); # TODO: Do real tridiag check (not symmetric)!
+	unless ($T->is_tridiagonal()); # DONE
+        #unless ($T->is_symmetric()); # TODO: Do real tridiag check (not symmetric)!
 
   my $EV;
   # Obtain/Creates the todo eigenvectors matrix
@@ -1778,7 +2251,8 @@ sub tri_eigenvalues ($;$)
   croak "Matrix is not quadratic"
     unless ($rows = $cols);
   croak "Matrix is not tridiagonal"
-        unless ($T->is_symmetric()); # TODO: Do real tridiag check (not symmetric)!
+	unless ($T->is_tridiagonal() ); # DONE
+        #unless ($T->is_symmetric()); # TODO: Do real tridiag check (not symmetric)!
 
   # Allocates diagonal vector
   my $diag = [ ];
@@ -1806,7 +2280,30 @@ sub tri_eigenvalues ($;$)
     }
   return $v;
 }
+## more general routine than sym_eigenvalues
+sub eigenvalues ($){
+	my ($matrix) = @_;
+	my ($rows,$cols) = $matrix->dim();
+	my $i=0;
 
+	#return sym_eigenvalues($matrix) if $matrix->is_symmetric();	
+	
+	croak "Matrix is not quadratic" unless ($rows == $cols);
+
+	if($matrix->is_upper_triangular() || $matrix->is_lower_triangular() ){
+		my $l = Math::MatrixReal->new($rows,1);
+		for(;$i < $rows; $i++ ){
+			$l->[0][$i][0] = $matrix->[0][$i][$i];
+		}
+		return $l;
+	}
+
+	return sym_eigenvalues($matrix) if $matrix->is_symmetric();
+
+	carp "Math::MatrixReal::eigenvalues(): Matrix is not symmetric or triangular";
+	return undef;
+
+}
 # Main routine for diagonalization of a real symmetric
 # matrix M. Operates by transforming M into a tridiagonal
 # matrix and then obtaining the eigenvalues and eigenvectors
@@ -1818,7 +2315,7 @@ sub sym_eigenvalues ($)
     my ($rows, $cols) = ($M->[1], $M->[2]);
     
     croak "Matrix is not quadratic"
-	unless ($rows = $cols);
+	unless ($rows = $cols); # XXX: booboo
     croak "Matrix is not symmetric"
         unless ($M->is_symmetric());
 
@@ -1840,7 +2337,17 @@ sub sym_eigenvalues ($)
     }
     return $val;
 }
+sub is_orthogonal($) {
+	my ($matrix) = @_;
+	croak "Math::MatrixReal::is_orthogonal(): Matrix is not quadratic"
+		unless( $matrix->is_quadratic() );
+	
+	my $one = $matrix->shadow();
+	$one->one;
 
+	abs(~$matrix * $matrix - $one) < 1e-12 ? return 1 : return 0;
+
+}
 # Boolean check routine to see if a matrix is
 # symmetric
 sub is_symmetric ($)
@@ -1857,6 +2364,88 @@ sub is_symmetric ($)
 	}
     }
   return 1;
+}
+# Boolean check to see if matrix is tridiagonal
+sub is_tridiagonal ($) {
+	my ($M) = @_;
+        my ($rows,$cols) = ($M->[1],$M->[2]);
+        my ($i,$j) = (0,0); 
+	# if it is not quadratic it cannot be tridiag
+	return 0 unless ($rows == $cols);
+
+	for(;$i < $rows; $i++ ){
+		for(;$j < $cols; $j++ ){
+			#print "debug: testing $i,$j = " . $M->[0][$i][$j] . "\n";
+			# skip diag and diag+-1
+			next if ($i == $j);		
+			next if ($i+1 == $j);
+			next if ($i-1 == $j);
+			return 0 if $M->[0][$i][$j];
+		}
+		$j = 0;
+	}
+	return 1;	
+}
+# Boolean check to see if matrix is upper triangular
+# i.e all nonzero elements are above main diagonal
+sub is_upper_triangular {
+	my ($M) = @_;
+	my ($rows,$cols) = $M->dim();
+	my ($i,$j) = (1,0);
+	return 0 unless ($rows == $cols);
+	
+	for(;$i < $rows; $i++ ){
+		for(;$j < $cols;$j++ ){
+			next if ($i <= $j);
+			return 0 if $M->[0][$i][$j];
+		}
+		$j = 0;
+	}
+	return 1;
+}
+# Boolean check to see if matrix is lower triangular
+# i.e all nonzero elements are lower main diagonal
+sub is_lower_triangular {
+        my ($M) = @_;
+        my ($rows,$cols) = $M->dim();
+        my ($i,$j) = (0,1);
+        return 0 unless ($rows == $cols);
+
+        for(;$i < $rows; $i++ ){
+                for(;$j < $cols;$j++ ){
+                        next if ($i >= $j);
+                        return 0 if $M->[0][$i][$j];
+                }
+                $j = 0;
+        }
+        return 1;
+}
+
+# Boolean check to see if matrix is diagonal
+sub is_diagonal ($) {
+	my ($M) = @_;
+	my ($rows,$cols) = ($M->[1],$M->[2]);
+	my ($i,$j) = (0,0);
+	return 0 unless ($rows == $cols );
+	for(;$i < $rows; $i++ ){
+		for(;$j < $cols; $j++ ){
+			# skip diag elements
+			next if ($i == $j);
+			return 0 if $M->[0][$i][$j];	
+		}
+		$j = 0;
+	}
+	return 1;
+}
+sub is_quadratic ($) {
+	croak "Usage: \$matrix->is_quadratic()" unless (@_ == 1);
+	my ($matrix) = @_;
+	$matrix->[1] == $matrix->[2] ? return 1 : return 0;
+}
+
+sub is_square($) {
+        croak "Usage: \$matrix->is_square()" unless (@_ == 1);
+	return (shift)->is_quadratic();
 }
 
                 ########################################
@@ -1885,6 +2474,7 @@ sub _transpose
     $temp = $object->new($object->[2],$object->[1]);
     $temp->transpose($object);
     return($temp);
+
 }
 
 sub _boolean
@@ -2016,6 +2606,16 @@ sub _subtract
     }
 }
 
+sub _exponent 
+{
+    my($matrix,$argument,$flag) = @_;
+    my($rows,$cols) = ($matrix->[1],$matrix->[2]);
+    my($name) = "'**'"; #&_trace($name,$object,$argument,$flag);
+
+    return $matrix->exponent( $argument );
+}
+
+
 sub _multiply
 {
     my($object,$argument,$flag) = @_;
@@ -2076,6 +2676,11 @@ sub _assign_multiply
 #   my($name) = "'*='"; #&_trace($name,$object,$argument,$flag);
 
     return( &_multiply($object,$argument,undef) );
+}
+
+sub _assign_exponent {
+	my($object,$arg,$flag) = @_;
+	return ( &_exponent($object,$arg,undef) );
 }
 
 sub _equal
@@ -2275,6 +2880,47 @@ sub _greater_than_or_equal
         croak "Math::MatrixReal $name: wrong argument type";
     }
 }
+sub _exp {
+	my ($matrix,$arg,$flag) = @_;
+	my $new_matrix = $matrix->clone();
+	my ($rows,$cols) = $matrix->dim();
+	
+	$new_matrix->_undo_LR();
+
+	croak "Math::MatrixReal::exp(): Matrix is not quadratic" unless ($rows == $cols);
+	croak "Math::MatrixReal::exp(): Only diagonal matrices supported" unless ( $matrix->is_diagonal() );
+
+	$new_matrix = $matrix->each_diag( sub { exp(shift) } );
+	return $new_matrix;
+
+}
+sub _cos {
+        my ($matrix,$arg,$flag) = @_;
+        my $new_matrix = $matrix->clone();
+        my ($rows,$cols) = $matrix->dim();
+
+        $new_matrix->_undo_LR();
+
+        croak "Math::MatrixReal::cos(): Matrix is not quadratic" unless ($rows == $cols);
+        croak "Math::MatrixReal::cos(): Only diagonal matrices supported" unless ( $matrix->is_diagonal() );
+
+        $new_matrix = $matrix->each_diag( sub { cos(shift) } );
+        return $new_matrix;
+}
+sub _sin {
+        my ($matrix,$arg,$flag) = @_;
+        my $new_matrix = $matrix->clone();
+        my ($rows,$cols) = $matrix->dim();
+
+        $new_matrix->_undo_LR();
+
+        croak "Math::MatrixReal::sin(): Matrix is not quadratic" unless ($rows == $cols);
+        croak "Math::MatrixReal::sin(): Only diagonal matrices supported" unless ( $matrix->is_diagonal() );
+
+        $new_matrix = $matrix->each_diag( sub { sin(shift) } );
+        return $new_matrix;
+
+}
 
 sub _clone
 {
@@ -2309,7 +2955,7 @@ __END__
 Math::MatrixReal - Matrix of Reals
 
 Implements the data type "matrix of reals" (and consequently also
-"vector of reals")
+"vector of reals").
 
 =head1 DESCRIPTION
 
@@ -2336,7 +2982,7 @@ the costs associated with each edge).
 
 =head1 SYNOPSIS
 
-=over 2
+=head2 Constructor Methods And Such
 
 =item *
 
@@ -2347,37 +2993,96 @@ to your program.
 
 =item *
 
-C<use Math::MatrixReal qw(min max);>
-
-=item *
-
-C<use Math::MatrixReal qw(:all);>
-
-Use one of these two variants to import (all) the functions which the module
-offers for export; currently these are "min()" and "max()".
-
-=item *
-
 C<$new_matrix = new Math::MatrixReal($rows,$columns);>
 
-The matrix object constructor method.
+The matrix object constructor method. A new matrix of size $rows by $columns
+will be created, with the value C<0.0> for all elements.
 
 Note that this method is implicitly called by many of the other methods
-in this module!
-
-=item *
-
-C<$new_matrix = Math::MatrixReal-E<gt>>C<new($rows,$columns);>
-
-An alternate way of calling the matrix object constructor method.
+in this module.
 
 =item *
 
 C<$new_matrix = $some_matrix-E<gt>>C<new($rows,$columns);>
 
-Still another way of calling the matrix object constructor method.
+Another way of calling the matrix object constructor method.
 
 Matrix "C<$some_matrix>" is not changed by this in any way.
+
+=item *
+
+C<$new_matrix = $matrix-E<gt>new_from_cols( [ $column_vector|$array_ref|$string, ... ] )>
+
+Creates a new matrix given a reference to an array of any of the following:
+
+=over 4
+
+=item * column vectors ( n by 1 Math::MatrixReal matrices )
+
+=item * references to arrays
+
+=item * strings properly formatted to create a column with Math::MatrixReal's
+C<new_from_string> command
+
+=back
+
+You may mix and match these as you wish.  However, all must be of the
+same dimension--no padding happens automatically.  Example: 
+
+	my $matrix = Math::MatrixReal->new_from_cols( [ [1,2], [3,4] ] );
+	print $matrix;
+
+will print
+
+	[  1.000000000000E+00  3.000000000000E+00 ]
+	[  2.000000000000E+00  4.000000000000E+00 ]
+
+
+=item * 
+
+C<new_from_rows( [ $row_vector|$array_ref|$string, ... ] )>
+
+Creates a new matrix given a reference to an array of any of the following:
+
+=over 4
+
+=item * row vectors ( 1 by n Math::MatrixReal matrices )
+
+=item * references to arrays
+
+=item * strings properly formatted to create a row with Math::MatrixReal's C<new_from_string> command
+
+=back
+
+You may mix and match these as you wish.  However, all must be of the
+same dimension--no padding happens automatically. Example:
+
+        my $matrix = Math::MatrixReal->new_from_rows( [ [1,2], [3,4] ] );
+        print $matrix;
+
+will print
+
+        [  1.000000000000E+00  2.000000000000E+00 ]
+        [  3.000000000000E+00  4.000000000000E+00 ]
+
+
+=item *
+
+C<$new_matrix = Math::MatrixReal-E<gt>new_diag( $array_ref );>
+
+This method allows you to create a diagonal matrix by only specifying
+the diagonal elements. Example: 
+	
+	$matrix = Math::MatrixReal->new_diag( [ 1,2,3,4 ] );
+	print $matrix;
+
+will print
+
+	[  1.000000000000E+00  0.000000000000E+00  0.000000000000E+00  0.000000000000E+00 ]
+	[  0.000000000000E+00  2.000000000000E+00  0.000000000000E+00  0.000000000000E+00 ]
+	[  0.000000000000E+00  0.000000000000E+00  3.000000000000E+00  0.000000000000E+00 ]
+	[  0.000000000000E+00  0.000000000000E+00  0.000000000000E+00  4.000000000000E+00 ]
+
 
 =item *
 
@@ -2529,9 +3234,14 @@ C<$twin_matrix = $some_matrix-E<gt>clone();>
 
 Returns an object reference to a B<NEW> matrix of the B<SAME SIZE> as
 matrix "C<$some_matrix>". The contents of matrix "C<$some_matrix>" have
-B<ALREADY BEEN COPIED> to the new matrix "C<$twin_matrix>".
+B<ALREADY BEEN COPIED> to the new matrix "C<$twin_matrix>". This
+is the method that the operator "=" is overloaded to when you type
+C<$a = $b>, when C<$a> and C<$b> are matrices.
 
 Matrix "C<$some_matrix>" is not changed by this in any way.
+
+
+=head2 Matrix Row, Column and Element operations
 
 =item *
 
@@ -2557,36 +3267,6 @@ Matrix "C<$matrix>" is not changed by this in any way.
 
 =item *
 
-C<$matrix-E<gt>zero();>
-
-Assigns a zero to every element of the matrix "C<$matrix>", i.e.,
-erases all values previously stored there, thereby effectively
-transforming the matrix into a "zero"-matrix or "null"-matrix,
-the neutral element of the addition operation in a Ring.
-
-(For instance the (quadratic) matrices with "n" rows and columns
-and matrix addition and multiplication form a Ring. Most prominent
-characteristic of a Ring is that multiplication is not commutative,
-i.e., in general, "C<matrix1 * matrix2>" is not the same as
-"C<matrix2 * matrix1>"!)
-
-=item *
-
-C<$matrix-E<gt>one();>
-
-Assigns one's to the elements on the main diagonal (elements (1,1),
-(2,2), (3,3) and so on) of matrix "C<$matrix>" and zero's to all others,
-thereby erasing all values previously stored there and transforming the
-matrix into a "one"-matrix, the neutral element of the multiplication
-operation in a Ring.
-
-(If the matrix is quadratic (which this method doesn't require, though),
-then multiplying this matrix with itself yields this same matrix again,
-and multiplying it with some other matrix leaves that other matrix
-unchanged!)
-
-=item *
-
 C<$matrix-E<gt>assign($row,$column,$value);>
 
 Explicitly assigns a value "C<$value>" to a single element of the
@@ -2599,6 +3279,84 @@ C<$value = $matrix-E<gt>>C<element($row,$column);>
 
 Returns the value of a specific element of the matrix "C<$matrix>",
 located in row "C<$row>" and column "C<$column>".
+
+=item *
+
+C<$new_matrix = $matrix-E<gt>each( \&function )>;
+
+Creates a new matrix by evaluating a code reference on each element of the 
+given matrix. The function is passed the element, the row index and the column
+index, in that order. The value the function returns ( or the value of the last
+executed statement ) is the value given to the corresponding element in $new_matrix.
+
+Example:
+
+	# add 1 to every element in the matrix
+	$matrix = $matrix->each ( sub { (shift) + 1 } );
+
+
+Example:
+
+	my $cofactor = $matrix->each( sub { my(undef,$i,$j) = @_;
+		$i++;$j++; # each() gives zero-based indices
+		($i+$j) % 2 == 0 ? $matrix->minor($i,$j)->det()
+		: -1*$matrix->minor($i,$j)->det();
+		} );
+
+This code needs some explanation. For each element of $matrix, it throws away the actual value
+and stores the row and column indexes in $i and $j. Then it sets element [$i,$j] in $cofactor
+to the determinant of C<$matrix-E<gt>minor($i,$j)> if it is an "even" element, or C<-1*$matrix-E<gt>minor($i,$j)>
+if it is an "odd" element.
+
+=item *
+
+C<$new_matrix = $matrix-E<gt>each_diag( \&function )>;
+
+Creates a new matrix by evaluating a code reference on each diagonal element of the 
+given matrix. The function is passed the element, the row index and the column
+index, in that order. The value the function returns ( or the value of the last
+executed statement ) is the value given to the corresponding element in $new_matrix.
+
+
+=item * 
+
+C<$matrix-E<gt>swap_col( $col1, $col2 );>
+
+This method takes two one-based column numbers and swaps the values of each element in each column.
+C<$matrix-E<gt>swap_col(2,3)> would replace column 2 in $matrix with column 3, and replace column
+3 with column 2. 
+
+=item * 
+
+C<$matrix-E<gt>swap_row( $row1, $row2 );>
+
+This method takes two one-based row numbers and swaps the values of each element in each row.
+C<$matrix-E<gt>swap_row(2,3)> would replace row 2 in $matrix with row 3, and replace row
+3 with row 2. 
+
+
+=head2 Matrix Operations
+
+=item *
+
+C<$det = $matrix-E<gt>det();>
+
+Returns the determinant of the matrix, without going through
+the rigamarole of computing a LR decomposition. This method should
+be much faster than LR decomposition if the matrix is diagonal or
+triangular. Otherwise, it is just a wrapper for 
+C<$matrix-E<gt>decompose_LR-E<gt>det_LR>. If the determinant is zero, 
+there is no inverse and vice-versa. Only quadratic matrices have 
+determinants.
+
+=item *
+
+C<$inverse = $matrix-E<gt>inverse();>
+
+Returns the inverse of a matrix, without going through the
+rigamarole of computing a LR decomposition. If no inverse exists,
+undef is returned and an error is printed via C<carp()>.
+This is nothing but a wrapper for C<$matrix-E<gt>decompose_LR-E<gt>invert_LR>.
 
 =item *
 
@@ -2635,7 +3393,7 @@ except for the iterative methods "solve_GSM()", "solve_SSM()" and
 
 C<$norm_max = $matrix-E<gt>norm_max();>
 
-Returns the "maximum"-norm of the given matrix "C<$matrix>".
+Returns the "maximum"-norm of the given matrix $matrix.
 
 The "maximum"-norm is defined as follows:
 
@@ -2657,20 +3415,16 @@ except for the iterative methods "solve_GSM()", "solve_SSM()" and
 
 =item *
 
-C<$matrix1-E<gt>negate($matrix2);>
+C<$matrix-E<gt>norm_sum();>
 
-Calculates the negative of matrix "C<$matrix2>" (i.e., multiplies
-all elements with "-1") and stores the result in matrix "C<$matrix1>"
-(which must already exist and have the same size as matrix "C<$matrix2>"!).
-
-This operation can also be carried out "in-place", i.e., input and
-output matrix may be identical.
+This is a very simple norm which is defined as the sum of the 
+absolute values of every element.
 
 =item *
 
 C<$matrix1-E<gt>transpose($matrix2);>
 
-Calculates the transposed matrix of matrix "C<$matrix2>" and stores
+Calculates the transposed matrix of matrix $matrix2 and stores
 the result in matrix "C<$matrix1>" (which must already exist and have
 the same size as matrix "C<$matrix2>"!).
 
@@ -2714,6 +3468,71 @@ So be careful about what you really mean!
 
 Hint: throughout this module, whenever a vector is explicitly required
 for input, a B<COLUMN> vector is expected!
+
+=item *
+
+C<$trace = $matrix-E<gt>trace();>
+
+This returns the trace of the matrix, which is defined as
+the sum of the diagonal elements. The matrix must be
+quadratic.
+
+=item *
+
+C<$minor = $matrix-E<gt>minor($row,$col);>
+
+Returns the minor matrix corresponding to $row and $col. $matrix must be quadratic.
+If $matrix is n rows by n cols, the minor of $row and $col will be an (n-1) by (n-1)
+matrix. The minor is defined as crossing out the row and the col specified and returning
+the remaining rows and columns as a matrix. This method is used by C<cofactor()>.
+
+=item *
+
+C<$cofactor = $matrix-E<gt>cofactor();>
+
+The cofactor matrix is constructed as follows:
+
+For each element, cross out the row and column that it sits in.
+Now, take the determinant of the matrix that is left in the other
+rows and columns.
+Multiply the determinant by (-1)^(i+j), where i is the row index,
+and j is the column index. 
+Replace the given element with this value.
+
+The cofactor matrix can be used to find the inverse of the matrix. One formula for the
+inverse of a matrix is the cofactor matrix transposed divided by the original
+determinant of the matrix. 
+
+The following two inverses should be exactly the same:
+	
+	my $inverse1 = $matrix->inverse;
+	my $inverse2 = ~($matrix->cofactor)->each( sub { (shift)/$matrix->det() } );
+
+Caveat: Although the cofactor matrix is simple algorithm to compute the inverse of a matrix, and
+can be used with pencil and paper for small matrices, it is comically slower than 
+the native C<inverse()> function. Here is a small benchmark:
+
+	# $matrix1 is 15x15
+	$det = $matrix1->det;
+	timethese( 10,
+        {'inverse' => sub { $matrix1->inverse(); },
+          'cofactor' => sub { (~$matrix1->cofactor)->each ( sub { (shift)/$det; } ) }
+        } );
+
+
+	Benchmark: timing 10 iterations of LR, cofactor, inverse...
+        inverse:  1 wallclock secs ( 0.56 usr +  0.00 sys =  0.56 CPU) @ 17.86/s (n=10)
+  	cofactor: 36 wallclock secs (36.62 usr +  0.01 sys = 36.63 CPU) @  0.27/s (n=10)
+
+=item *
+
+C<$adjoint = $matrix-E<gt>adjoint();>
+
+The adjoint is just the transpose of the cofactor matrix. This method is 
+just an alias for C< ~($matrix-E<gt>cofactor)>.
+
+
+=head2 Arithmetic Operations
 
 =item *
 
@@ -2783,13 +3602,250 @@ of columns of matrix "C<$matrix2>", respectively.
 
 =item *
 
+C<$matrix1-E<gt>negate($matrix2);>
+
+Calculates the negative of matrix "C<$matrix2>" (i.e., multiplies
+all elements with "-1") and stores the result in matrix "C<$matrix1>"
+(which must already exist and have the same size as matrix "C<$matrix2>"!).
+
+This operation can also be carried out "in-place", i.e., input and
+output matrix may be identical.
+
+
+=item *
+
+C<$matrix_to_power = $matrix1-E<gt>exponent($integer);>
+
+Raises the matrix to the C<$integer> power. Obviously, C<$integer> must
+be an integer. If it is zero, the identity matrix is returned. If a negative
+integer is given, the inverse will be computed (if it exists) and then raised
+the the absolute value of C<$integer>. The matrix must be quadratic.
+
+
+=head2 Boolean Matrix Operations
+
+=item * 
+
+C<$matrix-E<gt>is_quadratic();>
+
+Returns a boolean value indicating if the given matrix is 
+quadratic (also know as "square" or "n by n"). A matrix is 
+quadratic if it has the same number of rows as it does columns.
+
+=item * 
+
+C<$matrix-E<gt>is_square();>
+
+This is an alias for C<is_quadratic()>.
+
+
+=item *
+
+C<$matrix-E<gt>is_symmetric();>
+
+Returns a boolean value indicating if the given matrix is
+symmetric. By definition, a matrix is symmetric if and only
+if (B<M>[I<i>,I<j>]=B<M>[I<j>,I<i>]). This is equivalent to
+C<($matrix == ~$matrix)> but without memory allocation.
+Only quadratic matrices can be symmetric.
+
+Notes: A symmetric matrix always has real eigenvalues/eigenvectors.
+A matrix plus its transpose is always symmetric.
+
+=item *
+
+C<$matrix-E<gt>is_diagonal();>
+
+Returns a boolean value indicating if the given matrix is
+diagonal, i.e. all of the nonzero elements are on the main diagonal.
+Only quadratic matrices can be diagonal.
+
+=item * 
+
+C<$matrix-E<gt>is_tridiagonal();>
+
+Returns a boolean value indicating if the given matrix is 
+tridiagonal, i.e. all of the nonzero elements are on the main diagonal
+or the diagonals above and below the main diagonal.
+Only quadratic matrices can be tridiagonal.
+
+
+=item *
+
+C<$matrix-E<gt>is_upper_triangular();>
+
+Returns a boolean value indicating if the given matrix is upper triangular, 
+i.e. all of the nonzero elements not on the main diagonal are above it.
+Only quadratic matrices can be upper triangular.
+Note: diagonal matrices are both upper and lower triangular.
+
+
+=item *
+
+C<$matrix-E<gt>is_lower_triangular();>
+
+Returns a boolean value indicating if the given matrix is lower triangular,
+i.e. all of the nonzero elements not on the main diagonal are below it.
+Only quadratic matrices can be lower triangular.
+Note: diagonal matrices are both upper and lower triangular.
+
+=item *
+
+C<$matrix-E<gt>is_orthogonal();>
+
+Returns a boolean value indicating if the given matrix is orthogonal.
+An orthogonal matrix is has the property that the transpose equals the
+inverse of the matrix. Instead of computing each and comparing them, this
+method multiplies the matrix by it's transpose, and returns true if this 
+turns out to be the identity matrix, false otherwise.
+Only quadratic matrices can orthogonal.
+
+
+
+=head2 Eigensystems
+
+=over 2
+
+=item *
+
+C<($l, $V) = $matrix-E<gt>sym_diagonalize();>
+
+This method performs the diagonalization of the quadratic
+I<symmetric> matrix B<M> stored in $matrix.
+On output, B<l> is a column vector containing all the eigenvalues
+of B<M> and B<V> is an orthogonal matrix which columns are the
+corresponding normalized eigenvectors.
+The primary property of an eigenvalue I<l> and an eigenvector
+B<x> is of course that: B<M> * B<x> = I<l> * B<x>.
+
+The method uses a Householder reduction to tridiagonal form
+followed by a QL algoritm with implicit shifts on this
+tridiagonal. (The tridiagonal matrix is kept internally
+in a compact form in this routine to save memory.)
+In fact, this routine wraps the householder() and
+tri_diagonalize() methods described below when their
+intermediate results are not desired.
+The overall algorithmic complexity of this technique
+is O(N^3). According to several books, the coefficient
+hidden by the 'O' is one of the best possible for general
+(symmetric) matrixes.
+
+=item *
+
+C<($T, $Q) = $matrix-E<gt>householder();>
+
+This method performs the Householder algorithm which reduces
+the I<n> by I<n> real I<symmetric> matrix B<M> contained
+in $matrix to tridiagonal form.
+On output, B<T> is a symmetric tridiagonal matrix (only
+diagonal and off-diagonal elements are non-zero) and B<Q>
+is an I<orthogonal> matrix performing the tranformation
+between B<M> and B<T> (C<$M == $Q * $T * ~$Q>).
+
+=item *
+
+C<($l, $V) = $T-E<gt>tri_diagonalize([$Q]);>
+
+This method diagonalizes the symmetric tridiagonal
+matrix B<T>. On output, $l and $V are similar to the
+output values described for sym_diagonalize().
+
+The optional argument $Q corresponds to an orthogonal
+transformation matrix B<Q> that should be used additionally
+during B<V> (eigenvectors) computation. It should be supplied
+if the desired eigenvectors correspond to a more general
+symmetric matrix B<M> previously reduced by the
+householder() method, not a mere tridiagonal. If B<T> is
+really a tridiagonal matrix, B<Q> can be omitted (it
+will be internally created in fact as an identity matrix).
+The method uses a QL algorithm (with implicit shifts).
+
+=item *
+
+C<$l = $matrix-E<gt>sym_eigenvalues();>
+
+This method computes the eigenvalues of the quadratic
+I<symmetric> matrix B<M> stored in $matrix.
+On output, B<l> is a column vector containing all the eigenvalues
+of B<M>. Eigenvectors are not computed (on the contrary of
+C<sym_diagonalize()>) and this method is more efficient
+(even though it uses a similar algorithm with two phases).
+However, understand that the algorithmic complexity of this
+technique is still also O(N^3). But the coefficient hidden
+by the 'O' is better by a factor of..., well, see your
+benchmark, it's wiser.
+
+This routine wraps the householder_tridiagonal() and
+tri_eigenvalues() methods described below when the
+intermediate tridiagonal matrix is not needed.
+
+=item *
+
+C<$T = $matrix-E<gt>householder_tridiagonal();>
+
+This method performs the Householder algorithm which reduces
+the I<n> by I<n> real I<symmetric> matrix B<M> contained
+in $matrix to tridiagonal form.
+On output, B<T> is the obtained symmetric tridiagonal matrix
+(only diagonal and off-diagonal elements are non-zero). The
+operation is similar to the householder() method, but potentially
+a little more efficient as the transformation matrix is not
+computed.
+
+=item *
+
+C<$l = $T-E<gt>tri_eigenvalues();>
+
+This method compute the eigenvalues of the symmetric
+tridiagonal matrix B<T>. On output, $l is a vector
+containing the eigenvalues (similar to C<sym_eigenvalues()>).
+This method is much more efficient than tri_diagonalize()
+when eigenvectors are not needed.
+
+=back
+
+=head2 Miscellaneous 
+
+=item *
+
+C<$matrix-E<gt>zero();>
+
+Assigns a zero to every element of the matrix "C<$matrix>", i.e.,
+erases all values previously stored there, thereby effectively
+transforming the matrix into a "zero"-matrix or "null"-matrix,
+the neutral element of the addition operation in a Ring.
+
+(For instance the (quadratic) matrices with "n" rows and columns
+and matrix addition and multiplication form a Ring. Most prominent
+characteristic of a Ring is that multiplication is not commutative,
+i.e., in general, "C<matrix1 * matrix2>" is not the same as
+"C<matrix2 * matrix1>"!)
+
+=item *
+
+C<$matrix-E<gt>one();>
+
+Assigns one's to the elements on the main diagonal (elements (1,1),
+(2,2), (3,3) and so on) of matrix "C<$matrix>" and zero's to all others,
+thereby erasing all values previously stored there and transforming the
+matrix into a "one"-matrix, the neutral element of the multiplication
+operation in a Ring.
+
+(If the matrix is quadratic (which this method doesn't require, though),
+then multiplying this matrix with itself yields this same matrix again,
+and multiplying it with some other matrix leaves that other matrix
+unchanged!)
+
+
+=item *
+
 C<$minimum = Math::MatrixReal::min($number1,$number2);>
 
 Returns the minimum of the two numbers "C<number1>" and "C<number2>".
 
 =item *
 
-C<$minimum = Math::MatrixReal::max($number1,$number2);>
+C<$maximum = Math::MatrixReal::max($number1,$number2);>
 
 Returns the maximum of the two numbers "C<number1>" and "C<number2>".
 
@@ -3481,118 +4537,6 @@ Experiment!
 Remember that in most cases, it is probably advantageous to first
 "normalize()" your equation system prior to solving it!
 
-=back
-
-=head2 Eigensystems
-
-=over 2
-
-=item *
-
-C<$matrix-E<gt>is_symmetric();>
-
-Returns a boolean value indicating if the given matrix is
-symmetric (B<M>[I<i>,I<j>]=B<M>[I<j>,I<i>]). This is equivalent to 
-C<($matrix == ~$matrix)> but without memory allocation.
-
-=item *
-
-C<($l, $V) = $matrix-E<gt>sym_diagonalize();>
-
-This method performs the diagonalization of the quadratic
-I<symmetric> matrix B<M> stored in $matrix.
-On output, B<l> is a column vector containing all the eigenvalues
-of B<M> and B<V> is an orthogonal matrix which columns are the
-corresponding normalized eigenvectors.
-The primary property of an eigenvalue I<l> and an eigenvector
-B<x> is of course that: B<M> * B<x> = I<l> * B<x>.
-
-The method uses a Householder reduction to tridiagonal form
-followed by a QL algoritm with implicit shifts on this
-tridiagonal. (The tridiagonal matrix is kept internally
-in a compact form in this routine to save memory.)
-In fact, this routine wraps the householder() and
-tri_diagonalize() methods described below when their
-intermediate results are not desired.
-The overall algorithmic complexity of this technique
-is O(N^3). According to several books, the coefficient
-hidden by the 'O' is one of the best possible for general
-(symmetric) matrixes.
-
-=item *
-
-C<($T, $Q) = $matrix-E<gt>householder();>
-
-This method performs the Householder algorithm which reduces
-the I<n> by I<n> real I<symmetric> matrix B<M> contained
-in $matrix to tridiagonal form.
-On output, B<T> is a symmetric tridiagonal matrix (only
-diagonal and off-diagonal elements are non-zero) and B<Q>
-is an I<orthogonal> matrix performing the tranformation
-between B<M> and B<T> (C<$M == $Q * $T * ~$Q>).
-
-=item *
-
-C<($l, $V) = $T-E<gt>tri_diagonalize([$Q]);>
-
-This method diagonalizes the symmetric tridiagonal
-matrix B<T>. On output, $l and $V are similar to the
-output values described for sym_diagonalize().
-
-The optional argument $Q corresponds to an orthogonal
-transformation matrix B<Q> that should be used additionally
-during B<V> (eigenvectors) computation. It should be supplied
-if the desired eigenvectors correspond to a more general
-symmetric matrix B<M> previously reduced by the
-householder() method, not a mere tridiagonal. If B<T> is
-really a tridiagonal matrix, B<Q> can be omitted (it
-will be internally created in fact as an identity matrix).
-The method uses a QL algorithm (with implicit shifts).
-
-=item *
-
-C<$l = $matrix-E<gt>sym_eigenvalues();>
-
-This method computes the eigenvalues of the quadratic
-I<symmetric> matrix B<M> stored in $matrix.
-On output, B<l> is a column vector containing all the eigenvalues
-of B<M>. Eigenvectors are not computed (on the contrary of
-C<sym_diagonalize()>) and this method is more efficient
-(even though it uses a similar algorithm with two phases).
-However, understand that the algorithmic complexity of this
-technique is still also O(N^3). But the coefficient hidden
-by the 'O' is better by a factor of..., well, see your
-benchmark, it's wiser.
-
-This routine wraps the householder_tridiagonal() and
-tri_eigenvalues() methods described below when the
-intermediate tridiagonal matrix is not needed.
-
-=item *
-
-C<$T = $matrix-E<gt>householder_tridiagonal();>
-
-This method performs the Householder algorithm which reduces
-the I<n> by I<n> real I<symmetric> matrix B<M> contained
-in $matrix to tridiagonal form.
-On output, B<T> is the obtained symmetric tridiagonal matrix
-(only diagonal and off-diagonal elements are non-zero). The
-operation is similar to the householder() method, but potentially
-a little more efficient as the transformation matrix is not
-computed.
-
-=item *
-
-C<$l = $T-E<gt>tri_eigenvalues();>
-
-This method compute the eigenvalues of the symmetric
-tridiagonal matrix B<T>. On output, $l is a vector
-containing the eigenvalues (similar to C<sym_eigenvalues()>).
-This method is much more efficient than tri_diagonalize()
-when eigenvectors are not needed.
-
-=back
-
 =head1 OVERLOADED OPERATORS
 
 =head2 SYNOPSIS
@@ -3609,7 +4553,8 @@ Unary operators:
 
 Binary (arithmetic) operators:
 
-"C<+>", "C<->", "C<*>"
+"C<+>", "C<->", "C<*>", "C<**>",
+"C<+=>", "C<-=>", "C<*=>", "C<**=>"
 
 =item *
 
@@ -3766,6 +4711,27 @@ Examples:
 
     $matrix_A *= -1;
 
+=item '**'
+
+Exponentiation
+
+Returns the matrix raised to an integer power. If 0 is passed,
+the identity matrix is returned. If a negative integer is passed,
+it computes the inverse (if it exists) and then raised the inverse
+to the absolute value of the integer. The matrix must be quadratic.
+
+Examples:
+
+    $matrix2 = $matrix ** 2;
+
+    $matrix **= 2;
+
+    $inv2 = $matrix ** -2;
+
+    $ident = $matrix ** 0;
+
+
+
 =item '=='
 
 Equality
@@ -3876,16 +4842,22 @@ Uses the "one"-norm for matrices and Perl's built-in "abs()" for scalars.
 
 =head1 SEE ALSO
 
-Math::MatrixBool(3), DFA::Kleene(3), Math::Kleene(3),
+Math::PARI(3), Math::MatrixBool(3), DFA::Kleene(3), Math::Kleene(3),
 Set::IntegerRange(3), Set::IntegerFast(3).
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.3.
+This man page documents Math::MatrixReal version 1.4.
+
+The latest version can always be found at
+http://leto.net/code/Math-MatrixReal/
 
 =head1 AUTHORS
 
-Steffen Beyer <sb@sdm.de>, Rodolphe Ortalo <ortalo@laas.fr>.
+Steffen Beyer <sb@engelschall.com>, Rodolphe Ortalo <ortalo@laas.fr>,
+Jonathan Leto <jonathan@leto.net>.
+
+Currently maintained by Jonathan Leto, send all bugs/patches to me.
 
 =head1 CREDITS
 
@@ -3896,7 +4868,7 @@ lectures in Numerical Analysis!
 
 =head1 COPYRIGHT
 
-Copyright (c) 1996, 1997, 1999 by Steffen Beyer and Rodolphe Ortalo.
+Copyright (c) 1996-2002 by Steffen Beyer, Rodolphe Ortalo, Jonathan Leto.
 All rights reserved.
 
 =head1 LICENSE AGREEMENT

@@ -5,8 +5,11 @@ WriteMakefile(
     'NAME'		=> 'Math::MatrixReal',
     'DISTNAME'		=> 'Math-MatrixReal',
     'VERSION_FROM'	=> 'MatrixReal.pm',
+    ($] >= 5.005 ?    
+      (ABSTRACT => 'Manipulate Matrices of Real Numbers',
+       AUTHOR     => 'Jonathan Leto <jonathan@leto.net>') : ()),
     'dist'		=> { COMPRESS=>"gzip -9", SUFFIX=>"gz" },
-    'LIBS'		=> [''],   # e.g., '-lm' 
-    'DEFINE'		=> '',     # e.g., '-DHAVE_SOMETHING' 
-    'INC'		=> ''      # e.g., '-I/opt/pkg/perl5.003/dist' 
+    'LIBS'		=> [''],   
+    'DEFINE'		=> '',    
+    'INC'		=> ''    
 );
