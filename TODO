@@ -10,6 +10,10 @@ Row echelon form
 Column echelon form
 Hard: Jordan form
 More examples in docs
+print as latex,matlab,mathematica,other,...
+DONE:make each,each_diag 1-based for consistency SOON
+t/basic.t should check results
+alphabetize section of docs
 
  * Steffen Beyer ideas:
 

@@ -15,7 +15,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '1.6';
+$VERSION = '1.7';
 
 use overload
      'neg' => '_negate',
@@ -118,7 +118,7 @@ sub new_from_string
     $values = [ ];
     while ($string =~ m!^\s*
   \[ \s+ ( (?: [+-]? \d+ (?: \. \d* )? (?: E [+-]? \d+ )? \s+ )+ ) \] \s*? \n
-    !x)
+    !ix)
     {
         $line = $1;
         $string = $';
@@ -134,7 +134,10 @@ sub new_from_string
     }
     if ($string !~ m!^\s*$!)
     {
-        croak "Math::MatrixReal::new_from_string(): syntax error in input string";
+        #croak
+	print "Math::MatrixReal::new_from_string(): syntax error in input string";
+	print "String is\n$string\n---\n";
+	croak;
     }
     if ($rows == 0)
     {
@@ -527,6 +530,7 @@ sub row_echelon {
 	return $matrix;
 }
 =cut
+
 sub cofactor {
 	my ($matrix) = @_;
 	my ($rows,$cols) = $matrix->dim();
@@ -536,7 +540,6 @@ sub cofactor {
 
 	# black magic ahead
 	my $cofactor = $matrix->each( sub { my($v,$i,$j) = @_;
-					$i++;$j++; # each() gives zero-based indices
 					($i+$j) % 2 == 0 ? $matrix->minor($i,$j)->det()
 					: -1*$matrix->minor($i,$j)->det(); 
 					} );
@@ -777,7 +780,8 @@ sub each {
 	for (my $i = 0; $i < $rows; $i++ ) {
 		for (my $j = 0; $j < $cols; $j++ ) {
 			no strict 'refs';
-			$new_matrix->[0][$i][$j] = &{ $function }($matrix->[0][$i][$j],$i,$j) ;
+			# $i,$j are 1-based as of 1.7
+			$new_matrix->[0][$i][$j] = &{ $function }($matrix->[0][$i][$j],$i+1,$j+1) ;
 		}
 	}
 	return ($new_matrix);
@@ -798,7 +802,8 @@ sub each_diag {
                 for (my $j = 0; $j < $cols; $j++ ) {
 			next unless ($i == $j);
                         no strict 'refs';
-                        $new_matrix->[0][$i][$j] = &{ $function }($matrix->[0][$i][$j],$i,$j) ;
+			# $i,$j are 1-based as of 1.7
+                        $new_matrix->[0][$i][$j] = &{ $function }($matrix->[0][$i][$j],$i+1,$j+1) ;
                 }
         }
         return ($new_matrix);
@@ -963,7 +968,7 @@ sub exponent {
 	croak "Usage: \$matrix_exp = \$matrix1->exponent(\$integer);" if(@_ != 2 );
 	my($matrix,$argument) = @_;
 	my($rows,$cols) = ($matrix->[1],$matrix->[2]);
-	my($name) = "'**'"; #&_trace($name,$object,$argument,$flag);
+	my($name) = "'**'"; 
 	my($temp) = $matrix->clone();       
 
 	croak "Matrix is not quadratic" unless ($rows == $cols);
@@ -1381,6 +1386,7 @@ sub condition
 
 ## easy to use determinant
 ## very fast if matrix is diagonal or triangular
+
 sub det {
 	croak "Usage: \$determinant = \$matrix->det_LR();" unless (@_ == 1);
 	my ($matrix) = @_;
@@ -1419,6 +1425,10 @@ sub det_LR  #  determinant of LR decomposition matrix
         $det *= $matrix->[0][$k][$k];
     }
     return($det);
+}
+
+sub rank_LR {
+	return (shift)->order_LR;
 }
 
 sub order_LR  #  order of LR decomposition matrix (number of non-zero equations)
@@ -2287,6 +2297,7 @@ sub tri_eigenvalues ($;$)
     }
   return $v;
 }
+
 ## more general routine than sym_eigenvalues
 sub eigenvalues ($){
 	my ($matrix) = @_;
@@ -2346,8 +2357,9 @@ sub sym_eigenvalues ($)
 }
 sub is_orthogonal($) {
 	my ($matrix) = @_;
-	croak "Math::MatrixReal::is_orthogonal(): Matrix is not quadratic"
-		unless( $matrix->is_quadratic() );
+	##croak "Math::MatrixReal::is_orthogonal(): Matrix is not quadratic"
+
+	return 0 unless( $matrix->is_quadratic() );
 	
 	my $one = $matrix->shadow();
 	$one->one;
@@ -2355,6 +2367,30 @@ sub is_orthogonal($) {
 	abs(~$matrix * $matrix - $one) < 1e-12 ? return 1 : return 0;
 
 }
+#TODO: docs
+sub is_positive($) {
+	my ($m) = @_;
+	my $pos = 1;
+	$m->each( sub { if( (shift) <= 0){ $pos = 0;return;} } );
+	return $pos;
+}
+sub is_negative($) {
+        my ($m) = @_;
+        my $neg = 1;
+        $m->each( sub { if( (shift) >= 0){ $neg = 0;return;} } );
+        return $neg;
+}
+
+
+sub is_periodic($$) {
+	my ($m,$k) = @_;
+        return 0 unless $m->is_quadratic();
+	abs($m**(int($k)+1) - $m) < 1e-12 ? return 1 : return 0;
+}
+sub is_idempotent($) {
+	return (shift)->is_periodic(1);
+}
+
 # Boolean check routine to see if a matrix is
 # symmetric
 sub is_symmetric ($)
@@ -2363,6 +2399,7 @@ sub is_symmetric ($)
   my ($rows, $cols) = ($M->[1], $M->[2]);
   # if it is not quadratic it cannot be symmetric...
   return 0 unless ($rows == $cols);
+  # skip when $i=$j?
   for (my $i = 1; $i < $rows; $i++)
     {
       for (my $j = 0; $j < $i; $j++)
@@ -2507,6 +2544,54 @@ sub is_binary{
         return 1;
 
 }
+#TODO: any ideas for a good test?
+#TODO: docs
+sub as_latex{
+	my ($m) = shift;
+	my %args = ( 
+		format => "%s",
+		name => "",
+		align => "c",
+		@_);
+
+
+	my ($row,$col) = $m->dim;
+	my $inside;
+	my $s = <<LATEX;
+\$
+\\left( \\begin{array}{%COLS%}
+%INSIDE%\\end{array} \\right)
+\$
+LATEX
+	$args{align} = lc $args{align};
+	if( $args{align} !~ m/^(c|l|r)$/ ){
+		croak "Math::MatrixReal::as_latex(): Invalid alignment '$args{align}'";
+	}
+
+	$s =~ s/%COLS%/$args{align} x $col/em;
+
+	if( $args{name} ){
+		$s = "\$$args{name} = \$ " . $s;
+	}
+	$m->each( 
+		sub { my($x,$i,$j)=@_;
+
+			$x = sprintf($args{format},$x);
+
+			# last element in each row gets a \\
+			if ($j == $col && $i != $row){
+		 		$inside .= "$x \\\\"."\n";
+			# the annoying last line has neither
+			} elsif( $j == $col && $i == $row){ 
+				$inside .= "$x\n";
+			} else {
+				$inside .= "$x&";
+			}
+		} 
+	);
+	$s =~ s/%INSIDE%/$inside/gm;
+	return $s;
+}
 #### 
 sub spectral_radius {
 	my ($matrix) = @_;
@@ -2527,7 +2612,7 @@ sub spectral_radius {
 sub _negate
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "neg"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "neg"; 
     my($temp);
 
     $temp = $object->new($object->[1],$object->[2]);
@@ -2538,7 +2623,7 @@ sub _negate
 sub _transpose
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "'~'"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "'~'"; 
     my($temp);
 
     $temp = $object->new($object->[2],$object->[1]);
@@ -2550,10 +2635,11 @@ sub _transpose
 sub _boolean
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "bool"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "bool"; 
     my($rows,$cols) = ($object->[1],$object->[2]);
     my($i,$j,$result);
 
+    #TODO: ugly...
     $result = 0;
     BOOL:
     for ( $i = 0; $i < $rows; $i++ )
@@ -2569,11 +2655,11 @@ sub _boolean
     }
     return($result);
 }
-
+#TODO: ugly copy+paste
 sub _not_boolean
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "'!'"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "'!'"; 
     my($rows,$cols) = ($object->[1],$object->[2]);
     my($i,$j,$result);
 
@@ -2596,7 +2682,7 @@ sub _not_boolean
 sub _stringify
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = '""'; #&_trace($name,$object,$argument,$flag);
+#   my($name) = '""'; 
     my($rows,$cols) = ($object->[1],$object->[2]);
     my($i,$j,$s);
 
@@ -2616,7 +2702,7 @@ sub _stringify
 sub _norm
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "abs"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "abs"; 
 
     return( $object->norm_one() );
 }
@@ -2624,7 +2710,7 @@ sub _norm
 sub _add
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'+'"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'+'"; 
     my($temp);
 
     if ((defined $argument) && ref($argument) &&
@@ -2651,7 +2737,7 @@ sub _add
 sub _subtract
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'-'"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'-'"; 
     my($temp);
 
     if ((defined $argument) && ref($argument) &&
@@ -2680,7 +2766,7 @@ sub _exponent
 {
     my($matrix,$argument,$flag) = @_;
     my($rows,$cols) = ($matrix->[1],$matrix->[2]);
-    my($name) = "'**'"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'**'"; 
 
     return $matrix->exponent( $argument );
 }
@@ -2689,7 +2775,7 @@ sub _exponent
 sub _multiply
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'*'"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'*'"; 
     my($temp);
 
     if ((defined $argument) && ref($argument) &&
@@ -2727,7 +2813,7 @@ sub _multiply
 sub _assign_add
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "'+='"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "'+='"; 
 
     return( &_add($object,$argument,undef) );
 }
@@ -2735,7 +2821,7 @@ sub _assign_add
 sub _assign_subtract
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "'-='"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "'-='"; 
 
     return( &_subtract($object,$argument,undef) );
 }
@@ -2743,7 +2829,7 @@ sub _assign_subtract
 sub _assign_multiply
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "'*='"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "'*='"; 
 
     return( &_multiply($object,$argument,undef) );
 }
@@ -2756,7 +2842,7 @@ sub _assign_exponent {
 sub _equal
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'=='"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'=='"; 
     my($rows,$cols) = ($object->[1],$object->[2]);
     my($i,$j,$result);
 
@@ -2787,7 +2873,7 @@ sub _equal
 sub _not_equal
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'!='"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'!='"; 
     my($rows,$cols) = ($object->[1],$object->[2]);
     my($i,$j,$result);
 
@@ -2818,7 +2904,7 @@ sub _not_equal
 sub _less_than
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'<'"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'<'"; 
 
     if ((defined $argument) && ref($argument) &&
         (ref($argument) !~ /^SCALAR$|^ARRAY$|^HASH$|^CODE$|^REF$/))
@@ -2852,7 +2938,7 @@ sub _less_than
 sub _less_than_or_equal
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'<='"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'<='"; 
 
     if ((defined $argument) && ref($argument) &&
         (ref($argument) !~ /^SCALAR$|^ARRAY$|^HASH$|^CODE$|^REF$/))
@@ -2886,7 +2972,7 @@ sub _less_than_or_equal
 sub _greater_than
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'>'"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'>'"; 
 
     if ((defined $argument) && ref($argument) &&
         (ref($argument) !~ /^SCALAR$|^ARRAY$|^HASH$|^CODE$|^REF$/))
@@ -2920,7 +3006,7 @@ sub _greater_than
 sub _greater_than_or_equal
 {
     my($object,$argument,$flag) = @_;
-    my($name) = "'>='"; #&_trace($name,$object,$argument,$flag);
+    my($name) = "'>='"; 
 
     if ((defined $argument) && ref($argument) &&
         (ref($argument) !~ /^SCALAR$|^ARRAY$|^HASH$|^CODE$|^REF$/))
@@ -2995,7 +3081,7 @@ sub _sin {
 sub _clone
 {
     my($object,$argument,$flag) = @_;
-#   my($name) = "'='"; #&_trace($name,$object,$argument,$flag);
+#   my($name) = "'='"; 
     my($temp);
 
     $temp = $object->new($object->[1],$object->[2]);
@@ -3368,7 +3454,6 @@ Example:
 Example:
 
 	my $cofactor = $matrix->each( sub { my(undef,$i,$j) = @_;
-		$i++;$j++; # each() gives zero-based indices
 		($i+$j) % 2 == 0 ? $matrix->minor($i,$j)->det()
 		: -1*$matrix->minor($i,$j)->det();
 		} );
@@ -3815,6 +3900,38 @@ C<$matrix-E<gt>is_LR();>
 Returns a boolean value indicating if the matrix is an LR decomposition
 matrix.
 
+=item *
+
+C<$matrix-E<gt>is_positive();>
+
+Returns a boolean value indicating if the matrix contains only
+positive entries. Note that a zero entry is not positive and
+will cause C<is_positive()> to return false.
+
+=item *
+
+C<$matrix-E<gt>is_negative();>
+
+Returns a boolean value indicating if the matrix contains only
+negative entries. Note that a zero entry is not negative and
+will cause C<is_negative()> to return false.
+
+=item *
+
+C<$matrix-E<gt>is_periodic($k);>
+
+Returns a boolean value indicating if the matrix is periodic
+with period $k. This is true if C<$matrix ** ($k+1) == $matrix>.
+When C<$k == 1>, this reduces down to the C<is_idempotent()>
+function. 
+
+=item *
+
+C<$matrix-E<gt>is_idempotent();>
+
+Returns a boolean value indicating if the matrix is idempotent,
+which is defined as the square of the matrix being equal to 
+the original matrix, i.e C<$matrix ** 2 == $matrix>.
 
 =head2 Eigensystems
 
@@ -3949,6 +4066,31 @@ operation in a Ring.
 then multiplying this matrix with itself yields this same matrix again,
 and multiplying it with some other matrix leaves that other matrix
 unchanged!)
+
+=item *
+
+C<$latex_string = $matrix-E<gt>as_latex( align=E<gt> "c", format =E<gt> "%s", name =E<gt> "" );>
+
+This function returns the matrix as a LaTeX string. It takes a hash as an
+argument which is used to control the style of the output. The hash element C<align>
+may be "c","l" or "r", corresponding to center, left and right, respectively. The
+C<format> element is a format string that is given to C<sprintf> to control the
+style of number format, such a floating point or scientific notation. The C<name>
+element can be used so that a LaTeX string of "$name = " is prepended to the string.
+
+Example:
+
+	my $a = Math::MatrixReal->new_from_cols([[ 1.234, 5.678, 9.1011],[1,2,3]] );
+	print $a->as_latex( ( format => "%.2f", align => "l",name => "A" ) );
+
+Output:
+	$A = $ $
+	\left( \begin{array}{ll}
+	1.23&1.00 \\
+	5.68&2.00 \\
+	9.10&3.00
+	\end{array} \right)
+	$
 
 
 =item *
@@ -4364,6 +4506,13 @@ matrix that was initially fed into "decompose_LR()".
 If "n" is the number of rows and columns of the (quadratic!) matrix,
 then "n - order" is the dimension of the solution space of the
 associated equation system.
+
+=item *
+
+C<$rank = $LR_matrix-E<gt>rank_LR();>
+
+This is an alias for the C<order_LR()> function. The "order"
+is usually called the "rank" in the United States.
 
 =item *
 
@@ -4962,7 +5111,7 @@ Set::IntegerRange, Set::IntegerFast .
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 1.6.
+This man page documents Math::MatrixReal version 1.7.
 
 The latest version can always be found at
 http://leto.net/code/Math-MatrixReal/

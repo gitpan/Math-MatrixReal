@@ -1,3 +1,22 @@
+Changes in v1.7 -- leto
+Fri Mar 15 13:09:49 EST 2002 
+---------------------------
+	* each() and each_diag() are now one-based for consistency
+	* removed _trace() comments
+	* as_latex() function created
+	* t/latex.t created
+	* t/bool.t created
+	* t/periodic.t created
+	* t/rank.t created
+	* new_from_string() shouldn't care about the case of the scientific E
+		notation (pointed out by Jim Bowery <jim_bowery@hotmail.com>)
+	* t/scinotation.t created
+	* is_idempotent() function added
+	* is_periodic() function added
+	* rank_LR() function added
+	* make is_orthogonal return 0 instead of croak when matrix
+		is not quadratic
+
 Changes in v1.6 -- leto
 Sat Feb 16 09:46:51 EST 2002 
 -------------------------

@@ -7,7 +7,7 @@ print "ok 1\n";
 do 'funcs.pl';
 
 my $BENCH = 0; # Some basic benchmarks on operations
-my $DEBUG2 = 1;
+my $DEBUG2 = 0;
 my $DEBUG = 0;
 my $bsize = 100; # For somebenches
 
