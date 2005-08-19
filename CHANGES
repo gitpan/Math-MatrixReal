@@ -1,3 +1,14 @@
+Changes in v1.10 - msouth
+Sat Aug 13 20:49:44 EDT 2005
+----------------------------
+    * Integration of Math::MatrixReal::Ext1 0.06
+        * merged new_from_cols and new_from_rows into one private
+          function which is called by wrappers with the old
+          names
+        * added tests to exercise all of the known failure modes
+          in new_from_{rows,cols} calls
+    * removed tabs from POD
+
 Changes in v1.9 - leto
 Wed May 15 03:19:34 EST 2002 
 ----------------------------

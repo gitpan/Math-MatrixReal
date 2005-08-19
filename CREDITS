@@ -15,7 +15,7 @@ Many people deserve recoginition for their help with Math::MatrixReal:
 	leading and incomplete)!
 
 *	Mike South <msouth@fulcrum.org> for the new_from_cols() and new_from_rows() functions
-	that were integrated from Math::MatrixReal::Ext1
+	that were integrated from Math::MatrixReal::Ext1 and version 1.10 
 
 *	Everybody involved with CPAN Testers, thanks guys/gals!
 

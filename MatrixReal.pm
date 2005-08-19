@@ -15,7 +15,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '1.9';
+$VERSION = '1.10';
 
 use overload
      'neg' => '_negate',
@@ -157,131 +157,146 @@ sub new_from_string
     }
     return($this);
 }
-# from Math::MatrixReal::Ext1
+# from Math::MatrixReal::Ext1 0.06 (msouth@fulcrum.org)
 sub new_from_cols {
-	my $proto = shift;
-	my $class = ref($proto) || $proto;
-	my $ref_to_cols = shift;
-	my @cols = @{$ref_to_cols};
+    my $this = shift;
+    my $extra_args = ( @_ > 1 && ref($_[-1]) eq 'HASH' ) ? pop : {};
+    $extra_args->{_type} = 'column';
 
-	my $cols = scalar( @cols );
-
-	my $matrix = 0;
-	my $rows = 0;
-
-	# each arg is a column, but we don't know what form they're
-	# in yet
-
-	my $col_index = 0;
-	foreach my $col (@cols) {
-		# it's one-based
-		$col_index ++;
-		my $ref = ref( $col ) ;
-
-		if ( $ref =~ /^Math::MatrixReal/ ) {
-			# it's already a Math::MatrixReal something
-		} elsif ( $ref eq 'ARRAY' ) {
-			my @array = @$col;
-			my $length = scalar( @array );
-			$col = $class->new_from_string( '[ '. join( " ]\n[ ", @array) ." ]\n" );
-		} elsif ( $ref eq '' ) {
-			# we hope this is a string
-			$col = $class->new_from_string( $col );
-		} else {
-			# we have no idea, error time!
-			croak __PACKAGE__."::new_from_cols(): sorry, I have no clue what you sent me!  I only know how to deal with array refs, strings, and things that are already in the Math::MatrixReal hierarchy \n";
-		}
-		my ($length, $one) = $col->dim;
-		croak __PACKAGE__."::new_from_cols(): This isn't a column vector"
-			  unless ($one == 1) ;
-
-		# if we already have a height, check that this is the same
-		if ($rows) {
-			croak __PACKAGE__."::new_from_cols(): This column vector has $length elements and an earlier one had $rows"
-			  unless ($length == $rows) ;
-		}
-		# else, we have a new height 
-		# TODO: maybe this should check for zero
-		else {
-			$rows = $length;
-		}
-
-		# create the matrix the first time through
-		unless ($matrix) {
-			$matrix = $class->new($rows, $cols);
-		}
-
-		foreach my $row_index (1..$rows){
-			my $value = $col->element($row_index, 1);
-			$matrix->assign($row_index, $col_index, $value);
-		}
-
-	}
-	return $matrix;
+    return $this->_new_from_rows_or_cols(@_, $extra_args );
 }
-#from Math::MatrixReal::Ext1
+# from Math::MatrixReal::Ext1 0.06 (msouth@fulcrum.org)
+sub new_from_columns {
+    my $this = shift;
+    $this->new_from_cols(@_);
+}
+# from Math::MatrixReal::Ext1 0.06 (msouth@fulcrum.org)
 sub new_from_rows {
-	my $proto = shift;
-	my $class = ref($proto) || $proto;
-	my $ref_to_rows = shift;
-	my @rows = @{$ref_to_rows};
+    my $this = shift;
+    my $extra_args = ( @_ > 1 && ref($_[-1]) eq 'HASH' ) ? pop : {};
+    $extra_args->{_type} = 'row';
 
-	my $rows = scalar( @rows );
+    return $this->_new_from_rows_or_cols(@_, $extra_args );
+}
 
-	my $matrix = 0;
-	my $cols = 0;
+# from Math::MatrixReal::Ext1 0.06 (msouth@fulcrum.org)
+sub _new_from_rows_or_cols {
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $ref_to_vectors = shift;
 
-	# each arg is a column, but we don't know what form they're
-	# in yet
+    # these additional args are internal at the moment, 
+    # but in the future the user could pass e.g. {pad=>1} to
+    # request padding
+    my $args = pop;
+    my $vector_type = $args->{_type};
+    die "Internal ".__PACKAGE__." error" unless $vector_type =~ /^(row|column)$/;
 
-	my $row_index = 0;
-	foreach my $row (@rows) {
-		# it's one-based
-		$row_index ++;
-		my $ref = ref( $row ) ;
+    # step back one frame because this private method is 
+    # not how the user called it
+    my $caller_subname = (caller(1))[3];
 
-		if ( $ref =~ /^Math::MatrixReal/ ) {
-			# it's already a Math::MatrixReal something
-		}
-		elsif ( $ref eq 'ARRAY' ) {
-			my @array = @$row;
-			my $length = scalar( @array );
-			$row = $class->new_from_string( '[ '. join( " ", @array) ." ]\n" );
-		}
-		elsif ( $ref eq '' ) {
-			# we hope this is a string
-			$row = $class->new_from_string( $row );
-		}
-		else {
-			# we have no idea, error time!
-			croak "Math::MatrixReal::new_from_rows(): Argument must be an arrayref,string or Math::MatrixReal object";
-		}
-		my ($one, $length) = $row->dim;
-		croak __PACKAGE__."::new_from_rows(): This isn't a column vector"
-			  unless ($one == 1) ;
+    # note--this die() could be inconvenient if someone had something
+    # really fancy that knew how to be dereffed as an array 
+    # (can you do that with a tied scalar?), but I'm not putting
+    # the rest of the world through an eval--they can just
+    # deref and pass a reference themselves.  If that ever happens
+    # we can add an arg to skip this check
+    croak "$caller_subname: need a reference to an array of ${vector_type}s" unless ref($ref_to_vectors) eq 'ARRAY';
+    my @vectors = @{$ref_to_vectors};
 
-		# if we already have a height, check that this is the same
-		if ($cols) {
-			croak "Math::MatrixReal::new_from_rows(): Column mismatch $length != $cols"
-			  unless ($length == $cols) ;
-		}
-		# else, we have a new width  FIXME maybe this should check for zero
-		else {
-			$cols = $length;
-		}
+    my $matrix;
 
-		# create the matrix the first time through
-		unless ($matrix) {
-			$matrix = $class->new($rows, $cols);
-		}
+    my $other_type = {row=>'column', column=>'row'}->{$vector_type};
 
-		foreach my $col_index (1..$cols){
-			my $value = $row->element(1, $col_index);
-			$matrix->assign($row_index, $col_index, $value);
-		}
+    my %matrix_dim = (
+        $vector_type => scalar( @vectors ), 
+        $other_type  => 0,  # we will correct this in a bit
+    );
 
-	}
-	return $matrix;
+    # row and column indices are one based
+    my $current_vector_count = 1; 
+    foreach my $current_vector (@vectors) {
+        # dimension is one-based, so we're
+        # starting with one here and incrementing
+        # as we go.  The other dimension is fixed (for now, until
+        # we add the 'pad' option), and gets set later
+        my $ref = ref( $current_vector ) ;
+
+        if ( $ref eq '' ) {
+            # we hope this is a properly formatted Math::MatrixReal string,
+            # but if not we just let the Math::MatrixReal die() do it's
+            # thing
+            $current_vector = $class->new_from_string( $current_vector );
+        }
+        elsif ( $ref eq 'ARRAY' ) {
+            my @array = @$current_vector;
+            croak "$caller_subname: one $vector_type you gave me was a ref to an array with no elements" unless @array ;
+            # we need to create the right kind of string based on whether
+            # they said they were sending us rows or columns:
+            if ($vector_type eq 'row') {
+                $current_vector = $class->new_from_string( '[ '. join( " ", @array) ." ]\n" );
+            }
+            else {
+                $current_vector = $class->new_from_string( '[ '. join( " ]\n[ ", @array) ." ]\n" );
+            }
+        }
+        elsif ( $ref ne 'HASH' and $current_vector->isa('Math::MatrixReal') ) {
+            # it's already a Math::MatrixReal something.
+            # we don't need to do anything, it will all
+            # work out
+        }
+        else {
+            # we have no idea, error time!
+            croak "$caller_subname: I only know how to deal with array refs, strings, and things that inherit from Math::MatrixReal\n";
+        }
+
+        # starting now we know $current_vector isa Math::MatrixReal thingy
+        my @vector_dims = $current_vector->dim;
+
+        #die unless the appropriate dimension is 1
+        croak "$caller_subname: I don't accept $other_type vectors"
+            unless ($vector_dims[ $vector_type eq 'row' ? 0 : 1 ] == 1) ;
+
+        # the other dimension is the length of our vector
+        my $length =  $vector_dims[ $vector_type eq 'row' ? 1 : 0 ];
+
+        # set the "other" dimension to the length of this
+        # vector the first time through
+        $matrix_dim{$other_type} ||= $length;
+
+        # die unless length of this vector matches the first length
+        croak "$caller_subname: one $vector_type has [$length] elements and another one had [$matrix_dim{$other_type}]--all of the ${vector_type}s passed in must have the same dimension"
+              unless ($length == $matrix_dim{$other_type}) ;
+
+        # create the matrix the first time through
+        $matrix ||= $class->new($matrix_dim{row}, $matrix_dim{column});
+
+        # step along the vector assigning the value of each element
+        # to the correct place in the matrix we're building
+        foreach my $element_index ( 1..$length ){
+            # args for vector assignment:
+            # initialize both to one and reset the correct
+            # one below
+            my ($v_r, $v_c) = (1,1);
+
+            # args for matrix assignment
+            my ($row_index, $column_index, $value);
+
+            if ($vector_type eq 'row') {
+                $row_index           = $current_vector_count;
+                $v_c = $column_index = $element_index;
+            }
+            else {
+                $v_r = $row_index    = $element_index;
+                $column_index        = $current_vector_count;
+            }
+            $value = $current_vector->element($v_r, $v_c);
+            $matrix->assign($row_index, $column_index, $value);
+        }
+        $current_vector_count ++ ;
+    }
+    return $matrix;
 }
 
 sub shadow
@@ -3288,13 +3303,13 @@ C<new_from_string> command
 You may mix and match these as you wish.  However, all must be of the
 same dimension--no padding happens automatically.  Example: 
 
-	my $matrix = Math::MatrixReal->new_from_cols( [ [1,2], [3,4] ] );
-	print $matrix;
+    my $matrix = Math::MatrixReal->new_from_cols( [ [1,2], [3,4] ] );
+    print $matrix;
 
 will print
 
-	[  1.000000000000E+00  3.000000000000E+00 ]
-	[  2.000000000000E+00  4.000000000000E+00 ]
+    [  1.000000000000E+00  3.000000000000E+00 ]
+    [  2.000000000000E+00  4.000000000000E+00 ]
 
 
 =item * 
@@ -3331,16 +3346,16 @@ C<$new_matrix = Math::MatrixReal-E<gt>new_diag( $array_ref );>
 
 This method allows you to create a diagonal matrix by only specifying
 the diagonal elements. Example: 
-	
-	$matrix = Math::MatrixReal->new_diag( [ 1,2,3,4 ] );
-	print $matrix;
+
+    $matrix = Math::MatrixReal->new_diag( [ 1,2,3,4 ] );
+    print $matrix;
 
 will print
 
-	[  1.000000000000E+00  0.000000000000E+00  0.000000000000E+00  0.000000000000E+00 ]
-	[  0.000000000000E+00  2.000000000000E+00  0.000000000000E+00  0.000000000000E+00 ]
-	[  0.000000000000E+00  0.000000000000E+00  3.000000000000E+00  0.000000000000E+00 ]
-	[  0.000000000000E+00  0.000000000000E+00  0.000000000000E+00  4.000000000000E+00 ]
+    [  1.000000000000E+00  0.000000000000E+00  0.000000000000E+00  0.000000000000E+00 ]
+    [  0.000000000000E+00  2.000000000000E+00  0.000000000000E+00  0.000000000000E+00 ]
+    [  0.000000000000E+00  0.000000000000E+00  3.000000000000E+00  0.000000000000E+00 ]
+    [  0.000000000000E+00  0.000000000000E+00  0.000000000000E+00  4.000000000000E+00 ]
 
 
 =item *
@@ -3550,16 +3565,16 @@ executed statement ) is the value given to the corresponding element in $new_mat
 
 Example:
 
-	# add 1 to every element in the matrix
-	$matrix = $matrix->each ( sub { (shift) + 1 } );
+    # add 1 to every element in the matrix
+    $matrix = $matrix->each ( sub { (shift) + 1 } );
 
 
 Example:
 
-	my $cofactor = $matrix->each( sub { my(undef,$i,$j) = @_;
-		($i+$j) % 2 == 0 ? $matrix->minor($i,$j)->det()
-		: -1*$matrix->minor($i,$j)->det();
-		} );
+    my $cofactor = $matrix->each( sub { my(undef,$i,$j) = @_;
+        ($i+$j) % 2 == 0 ? $matrix->minor($i,$j)->det()
+        : -1*$matrix->minor($i,$j)->det();
+        } );
 
 This code needs some explanation. For each element of $matrix, it throws away the actual value
 and stores the row and column indexes in $i and $j. Then it sets element [$i,$j] in $cofactor
@@ -3694,32 +3709,32 @@ between two vectors is just a special case of a p-norm, when p is
 equal to 2.
 
 Example:
-	$a = Math::MatrixReal->new_from_cols([[1,2,3]]);
-	$p1   = $a->norm_p(1);	
+    $a = Math::MatrixReal->new_from_cols([[1,2,3]]);
+    $p1   = $a->norm_p(1);	
         $p2   = $a->norm_p(2);    
         $p3   = $a->norm_p(3);    
-	$pinf = $a->norm_p("Inf");
+    $pinf = $a->norm_p("Inf");
 
-	print "(1,2,3,Inf) norm:\n$p1\n$p2\n$p3\n$pinf\n";
+    print "(1,2,3,Inf) norm:\n$p1\n$p2\n$p3\n$pinf\n";
 
-	$i1 = $a->new_from_rows([[1,0]]);
-	$i2 = $a->new_from_rows([[0,1]]);
+    $i1 = $a->new_from_rows([[1,0]]);
+    $i2 = $a->new_from_rows([[0,1]]);
 
-	# this should be sqrt(2) since it is the same as the 
-	# hypotenuse of a 1 by 1 right triangle
+    # this should be sqrt(2) since it is the same as the 
+    # hypotenuse of a 1 by 1 right triangle
 
-	$dist  = ($i1-$i2)->norm_p(2);
-	print "Distance is $dist, which should be " . sqrt(2) . "\n";
+    $dist  = ($i1-$i2)->norm_p(2);
+    print "Distance is $dist, which should be " . sqrt(2) . "\n";
 
 Output:
 
-	(1,2,3,Inf) norm:
-	6
-	3.74165738677394139
-	3.30192724889462668
-	3
+    (1,2,3,Inf) norm:
+    6
+    3.74165738677394139
+    3.30192724889462668
+    3
 
-	Distance is 1.41421356237309505, which should be 1.41421356237309505
+    Distance is 1.41421356237309505, which should be 1.41421356237309505
 
 
 
@@ -3825,25 +3840,25 @@ inverse of a matrix is the cofactor matrix transposed divided by the original
 determinant of the matrix. 
 
 The following two inverses should be exactly the same:
-	
-	my $inverse1 = $matrix->inverse;
-	my $inverse2 = ~($matrix->cofactor)->each( sub { (shift)/$matrix->det() } );
+
+    my $inverse1 = $matrix->inverse;
+    my $inverse2 = ~($matrix->cofactor)->each( sub { (shift)/$matrix->det() } );
 
 Caveat: Although the cofactor matrix is simple algorithm to compute the inverse of a matrix, and
 can be used with pencil and paper for small matrices, it is comically slower than 
 the native C<inverse()> function. Here is a small benchmark:
 
-	# $matrix1 is 15x15
-	$det = $matrix1->det;
-	timethese( 10,
+    # $matrix1 is 15x15
+    $det = $matrix1->det;
+    timethese( 10,
         {'inverse' => sub { $matrix1->inverse(); },
           'cofactor' => sub { (~$matrix1->cofactor)->each ( sub { (shift)/$det; } ) }
         } );
 
 
-	Benchmark: timing 10 iterations of LR, cofactor, inverse...
+    Benchmark: timing 10 iterations of LR, cofactor, inverse...
         inverse:  1 wallclock secs ( 0.56 usr +  0.00 sys =  0.56 CPU) @ 17.86/s (n=10)
-  	cofactor: 36 wallclock secs (36.62 usr +  0.01 sys = 36.63 CPU) @  0.27/s (n=10)
+    cofactor: 36 wallclock secs (36.62 usr +  0.01 sys = 36.63 CPU) @  0.27/s (n=10)
 
 =item *
 
@@ -4252,17 +4267,17 @@ element can be used so that a LaTeX string of "$name = " is prepended to the str
 
 Example:
 
-	my $a = Math::MatrixReal->new_from_cols([[ 1.234, 5.678, 9.1011],[1,2,3]] );
-	print $a->as_latex( ( format => "%.2f", align => "l",name => "A" ) );
+    my $a = Math::MatrixReal->new_from_cols([[ 1.234, 5.678, 9.1011],[1,2,3]] );
+    print $a->as_latex( ( format => "%.2f", align => "l",name => "A" ) );
 
-Output:
-	$A = $ $
-	\left( \begin{array}{ll}
-	1.23&1.00 \\
-	5.68&2.00 \\
-	9.10&3.00
-	\end{array} \right)
-	$
+    Output:
+    $A = $ $
+    \left( \begin{array}{ll}
+    1.23&1.00 \\
+    5.68&2.00 \\
+    9.10&3.00
+    \end{array} \right)
+    $
 
 =item *
 
