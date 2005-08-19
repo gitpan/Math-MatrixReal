@@ -51,3 +51,4 @@ t/transpose.t
 t/triang.t
 t/vecnorm.t
 t/yacas.t
+META.yml                                 Module meta-data (added by MakeMaker)
