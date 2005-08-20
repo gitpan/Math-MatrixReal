@@ -1,4 +1,4 @@
-Math::MatrixReal v1.10
+Math::MatrixReal v2.01
 http://leto.net/code/Math-MatrixReal/
 
 Contents of this file:
@@ -17,7 +17,9 @@ Contents of this file:
 Legal stuff:
 ------------
 
-Copyright (c) by Steffen Beyer, Rodolphe Ortalo, Jonathan Leto, Mike South
+Copyright (c) 1996, 1997 by Steffen Beyer.
+              1999 by Rodolphe Ortalo.
+	      2001-2002 by Jonathan Leto.
 All rights reserved.
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
@@ -112,6 +114,10 @@ added by Rodolphe Ortalo. Some test/bench programs were added also,
 especially for these methods.
 
 Please see the CHANGES file for newer version history.
+
+(NOTE:  The change from 1.9 to version 2.01 was not a major change, 
+we just didn't start out with leading zeroes in the original versioning,
+and ran out of decimal digits for minor updates.)
 
 Credits:
 --------

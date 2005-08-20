@@ -1,18 +1,19 @@
-Changes in v.11 - leto
-Fri Aug 19 00:01:04 EST 2005 
+Changes in v2.01 - msouth
+Fri Aug 19 23:40:24 EDT 2005
 ----------------------------
-	* now a valid CPAN tarball
-
-Changes in v1.10 - msouth
-Sat Aug 13 20:49:44 EDT 2005
-----------------------------
-    * Integration of Math::MatrixReal::Ext1 0.06
+    * Changed versioning format to leading zero after the
+      dot to make more minor versions possible this time
+    * Integration of Math::MatrixReal::Ext1 0.07
         * merged new_from_cols and new_from_rows into one private
           function which is called by wrappers with the old
           names
         * added tests to exercise all of the known failure modes
           in new_from_{rows,cols} calls
-    * removed tabs from POD
+    * Fixes for POD
+        * added a much needed =over 4 to the start of the POD
+        * removed tabs
+    * reformatted indentation of the all of the code to 4 space
+      indent (from a mixture of tabs, 8 space, 4 space, and 2 space)
 
 Changes in v1.9 - leto
 Wed May 15 03:19:34 EST 2002 

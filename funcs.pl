@@ -25,25 +25,25 @@ sub random_matrix ($)
 
 sub ok_matrix ($$$)
 {
-  my ($no, $M1, $M2) = @_;
-  my $tmp = $M1->shadow();
-  $tmp->subtract($M1,$M2);
-  my $v = $tmp->norm_one();
-  ok($no, ($v < 1e-8));
-  print " ($no: |Delta| = $v)\n" if $DEBUG;
+    my ($no, $M1, $M2) = @_;
+    my $tmp = $M1->shadow();
+    $tmp->subtract($M1,$M2);
+    my $v = $tmp->norm_one();
+    ok($no, ($v < 1e-8));
+    print " ($no: |Delta| = $v)\n" if $DEBUG;
 }
 
 sub ok_matrix_orthogonal ($$)
 {
-  my ($no, $M) = @_;
-  my $tmp = $M->shadow();
-  $tmp->one();
-  my $transp = $M->shadow();
-  $transp->transpose($M);
-  $tmp->subtract($M->multiply($transp), $tmp);
-  my $v = $tmp->norm_one();
-  ok($no, ($v < 1e-8));
-  print " ($no: |M * ~M - I| = $v)\n" if $DEBUG;
+    my ($no, $M) = @_;
+    my $tmp = $M->shadow();
+    $tmp->one();
+    my $transp = $M->shadow();
+    $transp->transpose($M);
+    $tmp->subtract($M->multiply($transp), $tmp);
+    my $v = $tmp->norm_one();
+    ok($no, ($v < 1e-8));
+    print " ($no: |M * ~M - I| = $v)\n" if $DEBUG;
 }
 
 sub ok_eigenvectors ($$$$)
@@ -70,9 +70,9 @@ sub ok_eigenvectors ($$$$)
     return;
 }
 sub similar($$$) {
-	my ($x,$y) = @_;
-	my $eps = shift || 1e-8;
-	abs($x - $y) < $eps ? return 1 : return 0;
+    my ($x,$y) = @_;
+    my $eps = shift || 1e-8;
+    abs($x - $y) < $eps ? return 1 : return 0;
 }
 1;
 
