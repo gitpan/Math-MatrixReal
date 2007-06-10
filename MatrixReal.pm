@@ -1,6 +1,6 @@
 #  Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
 #  Copyright (c) 1999 by Rodolphe Ortalo. All rights reserved.
-#  Copyright (c) 2001,2002 by Jonathan Leto. All rights reserved.
+#  Copyright (c) 2001-2007 by Jonathan Leto. All rights reserved.
 #  This package is free software; you can redistribute it and/or
 #  modify it under the same terms as Perl itself.
 
@@ -15,18 +15,19 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '2.01';
+$VERSION = '2.02';
 
 use overload
      'neg' => '_negate',
        '~' => '_transpose',
     'bool' => '_boolean',
        '!' => '_not_boolean',
-      '""' => '_stringify',
+#      '""' => '_stringify',
      'abs' => '_norm',
        '+' => '_add',
        '-' => '_subtract',
        '*' => '_multiply',
+       '/' => '_divide',
       '**' => '_exponent',
       '+=' => '_assign_add',
       '-=' => '_assign_subtract',
@@ -48,6 +49,8 @@ use overload
      'exp' => '_exp',
      'sin' => '_sin',
      'cos' => '_cos',
+      '""' => '_stringify',
+
 'fallback' =>   undef;
 
 sub new
@@ -2888,7 +2891,61 @@ sub _exponent
 
     return $matrix->exponent( $argument );
 }
+sub _divide
+{
+	my($matrix,$argument,$flag) = @_;
+	# TODO: check dimensions of everything!
+	my($mrows,$mcols) = ($matrix->[1],$matrix->[2]);
+	my($arows,$acols)=(0,0);
+	my($name) = "'/'";
+	my $temp = $matrix->clone();
+	my $arg;
+	my ($inv,$m1);
 
+	if( ref($argument) =~ /Math::MatrixReal/ ){ 
+		$arg =  $argument->clone();  
+		($arows,$acols)=($arg->[1],$arg->[2]);
+	}
+	#print "DEBUG: flag= $flag\n";
+	#print "DEBUG: arg=$arg\n";
+	if( $flag == 1) {
+		  #print "DEBUG: ref(arg)= " . ref($arg) . "\n";
+		if( ref($argument) =~ /Math::MatrixReal/ ){
+			#print "DEBUG: arg is a matrix \n";
+			# Matrix Division = A/B = A*B^(-1)
+			croak "Math::MatrixReal $name: this operation is defined only for square matrices" unless ($arows == $acols);
+			return $temp->multiply(  $arg->inverse() );	
+
+		} else {
+			#print "DEBUG: Arg is scalar\n";
+			#print "DEBUG:arows,acols=$arows,$acols\n";
+			#print "DEBGU:mrows,mcols=$mrows,$mcols\n";
+			 croak "Math::MatrixReal $name: this operation is defined only for square matrices" unless ($mrows == $mcols);
+			$temp->multiply_scalar( $temp , $argument);
+			return $temp;
+		}
+        } else {
+	#print "DEBUG: temp=\n";
+	#print $temp . "\n";
+	#print "DEBUG: ref(arg)= " . ref($arg) . "\n";
+	#print "DEBUG: arg=\n";
+	#print $arg ."\n";
+	if( ref($arg) =~ /Math::MatrixReal/ ){
+		#print "DEBUG: matrix division\n";
+		if( $arg->is_col_vector() ){
+			print "DEBUG: $arg is a col vector\n";
+		}
+		croak "Math::MatrixReal $name: this operation is defined only for square matrices" unless ($arows == $acols);
+		$inv = $arg->inverse();
+		return $temp->multiply($inv);
+	} else {
+		#print "DEBUG: ?\n";
+		$temp->multiply_scalar($temp,1/$argument);
+		return $temp;
+	}
+    }
+   
+}
 
 sub _multiply
 {
@@ -5053,7 +5110,7 @@ Unary operators:
 Binary (arithmetic) operators:
 
 "C<+>", "C<->", "C<*>", "C<**>",
-"C<+=>", "C<-=>", "C<*=>", "C<**=>"
+"C<+=>", "C<-=>", "C<*=>", "C</=>","C<**=>"
 
 =item *
 
@@ -5210,6 +5267,14 @@ Examples:
 
     $matrix_A *= -1;
 
+=item '/'
+
+Division
+
+Currently a shortcut for doing $a * $b ** -1 is $a / $b, which works for square matrices. One 
+can also use 1/$a .
+
+
 =item '**'
 
 Exponentiation
@@ -5347,7 +5412,7 @@ Set::IntegerRange, Set::IntegerFast .
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 2.01.
+This man page documents Math::MatrixReal version 2.02.
 
 The latest version can always be found at
 http://leto.net/code/Math-MatrixReal/

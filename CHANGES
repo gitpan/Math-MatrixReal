@@ -1,3 +1,11 @@
+Changes in v2.02 - leto
+Sat Jun 09 12:29:08 EDT 2007 
+----------------------------
+    * Fixed the overloading for the division operator which did not recognize $a/2, reported
+	by Daniel Brooks <db48x@yahoo.com>
+    * Added support for matrix division notation, so that $a/$b = $a*$b**(-1) when $a and $b are square matrices
+    * t/div.t created
+
 Changes in v2.01 - msouth
 Fri Aug 19 23:40:24 EDT 2005
 ----------------------------

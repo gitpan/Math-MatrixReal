@@ -21,6 +21,7 @@ t/cofactor.t
 t/condition.t
 t/det.t
 t/diag.t
+t/div.t
 t/each.t
 t/echelon
 t/eigen_3x3.t
@@ -51,3 +52,4 @@ t/transpose.t
 t/triang.t
 t/vecnorm.t
 t/yacas.t
+META.yml                                 Module meta-data (added by MakeMaker)
