@@ -1,6 +1,6 @@
 #  Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
 #  Copyright (c) 1999 by Rodolphe Ortalo. All rights reserved.
-#  Copyright (c) 2001-2007 by Jonathan Leto. All rights reserved.
+#  Copyright (c) 2001-2008 by Jonathan Leto. All rights reserved.
 #  This package is free software; you can redistribute it and/or
 #  modify it under the same terms as Perl itself.
 
@@ -15,9 +15,10 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '2.02';
+$VERSION = '2.03';
 
 use overload
+     '.'   => '_concat',
      'neg' => '_negate',
        '~' => '_transpose',
     'bool' => '_boolean',
@@ -452,18 +453,17 @@ sub swap_row {
     }
 }
 # TODO: docs
-# no worky
 sub assign_row {
     croak "Usage: \$matrix->assign_row(\$row,\$row_vec);"  unless (@_ == 3);
     my ($matrix,$row,$row_vec) = @_;
     my ($rows1,$cols1) = $matrix->dim();
     my ($rows2,$cols2) = $row_vec->dim();
-    
-    croak "Math::MatrixReal::assign_row(): row mismatch" if ($rows1 != $rows2);
-    croak "Math::MatrixReal::assign_row(): not a row vector" unless( $cols2 == 1);
+   
+    croak "Math::MatrixReal::assign_row(): number of columns mismatch" if ($cols1 != $cols2);
+    croak "Math::MatrixReal::assign_row(): not a row vector" unless( $rows2 == 1);
 
     @{$matrix->[0][--$row]} = @{$row_vec->[0][0]};
-
+    return $matrix;
 }
 # returns the number of zeroes in a row
 sub _count_zeroes_row {
@@ -2714,7 +2714,8 @@ LATEX
     return $s;
 }
 #### 
-sub spectral_radius {
+sub spectral_radius 
+{
     my ($matrix) = @_;
     my ($r,$c) = $matrix->dim;
     my $ev = $matrix->eigenvalues;
@@ -2722,14 +2723,40 @@ sub spectral_radius {
     $ev->each(sub { my $x = shift; $radius = $x if (abs($x) > $radius); } );
     return $radius;
 }
-
-
                 ########################################
                 #                                      #
                 # define overloaded operators section: #
                 #                                      #
                 ########################################
+sub _concat
+{
+    my($object,$argument,$flag) = @_;
+    my($orows,$ocols) 		= ($object->[1],$object->[2]);
+    my($arows,$acols) 		= ($argument->[1],$argument->[2]);
+    my($name)			= "concat";
 
+    croak "Math::MatrixReal: Matrices must have same number of rows in concatenation" unless ($orows == $arows);
+
+   
+    my $result = $object->new($orows,$ocols+$acols);
+
+    if ((defined $argument) && ref($argument) &&
+        (ref($argument) !~ /^SCALAR$|^ARRAY$|^HASH$|^CODE$|^REF$/))
+    {
+        for ( my $i = 0; $i < $arows; $i++ )
+        {
+            for ( my $j = 0; $j < $ocols + $acols; $j++ )
+            {
+		$result->[0][$i][$j] = ( $j <  $ocols ) ? $object->[0][$i][$j] : $argument->[0][$i][$j - $ocols] ;
+            }
+        }
+        return($result);
+    }
+    else
+    {
+        croak "Math::MatrixReal $name: wrong argument type";
+    }
+}
 sub _negate
 {
     my($object,$argument,$flag) = @_;
@@ -2939,7 +2966,6 @@ sub _divide
 		$inv = $arg->inverse();
 		return $temp->multiply($inv);
 	} else {
-		#print "DEBUG: ?\n";
 		$temp->multiply_scalar($temp,1/$argument);
 		return $temp;
 	}
@@ -5107,6 +5133,10 @@ Unary operators:
 
 =item *
 
+Binary operators:
+
+"C<.>"
+
 Binary (arithmetic) operators:
 
 "C<+>", "C<->", "C<*>", "C<**>",
@@ -5129,6 +5159,28 @@ only.
 =head2 DESCRIPTION
 
 =over 5
+
+=item '.'
+
+Concatenation
+
+Returns the two matrices concatenated side by side.
+
+Example:
+	$c = $a . $b;
+
+For example, 
+if  
+
+	$a=[ 1 2 ]   $b=[ 5 6 ]		
+	   [ 3 4 ]      [ 7 8 ]		
+then
+
+	$c=[ 1 2 5 6 ]
+           [ 3 4 7 8 ]
+
+Note that only matrices with the same number of rows may be concatenated.
+
 
 =item '-'
 

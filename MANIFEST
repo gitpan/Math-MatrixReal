@@ -3,14 +3,14 @@ CREDITS
 GOALS
 Kleene.pod
 MANIFEST
-Makefile.PL
-MatrixReal.pm
+Build.PL
+lib/Math/MatrixReal.pm
 README
 TODO
 funcs.pl
 t/adjoint.t
 t/arith.t
-t/assign
+t/assign.t
 t/basic.t
 t/bench
 t/bench_eigen.t
@@ -19,6 +19,7 @@ t/binary.t
 t/bool.t
 t/cofactor.t
 t/condition.t
+t/concat.t
 t/det.t
 t/diag.t
 t/div.t
@@ -52,4 +53,5 @@ t/transpose.t
 t/triang.t
 t/vecnorm.t
 t/yacas.t
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml
+Makefile.PL
