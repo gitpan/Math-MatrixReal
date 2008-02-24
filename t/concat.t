@@ -1,4 +1,4 @@
-use Test::Simple tests =>9;
+use Test::Simple tests =>7;
 use File::Spec;
 use lib File::Spec->catfile("..","lib");
 use Math::MatrixReal;
@@ -9,11 +9,13 @@ my $full = Math::MatrixReal->new_from_string(<<MATRIX);
 [ 4 3 5 ]
 [ 1 2 3 ]
 MATRIX
+
 my $fulleye = Math::MatrixReal->new_from_string(<<MATRIX);
 [ 3 4 1 1 0 0 ]
 [ 4 3 5 0 1 0 ]
 [ 1 2 3 0 0 1 ]
 MATRIX
+
 my $eyefull = Math::MatrixReal->new_from_string(<<MATRIX);
 [ 1 0 0 3 4 1 ]
 [ 0 1 0 4 3 5 ]
@@ -47,18 +49,6 @@ if ($@){
 } else {
 	ok(0, 'Concatenation of matrices with same number of rows only');
 }
-eval { $c = $a . 1 };
-if ($@){
-	ok(1, 'Concatenation with scalar fails');
-} else {
-	ok(0, 'Concatenation with scalar fails');
-}
-eval { $c = (1,2,3) . $a };
-if ($@){
-	ok(1, 'Concatenation with array fails');
-} else {
-	ok(0, 'Concatenation with array fails');
-}
 
 $c = Math::MatrixReal->new_from_string(<<MATRIX);
 [ 3 4 1 9 ]
@@ -77,3 +67,5 @@ my $dc = Math::MatrixReal->new_from_string(<<MATRIX);
 MATRIX
 $eps = 1e-8;
 ok( abs( $dc - ($d.$c) ) < $eps, 'Concatenation of matrices with different number of columns works');
+
+

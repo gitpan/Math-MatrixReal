@@ -1,10 +1,41 @@
-Changes in v2.03 - leto
-Sun Jan 27 00:58:05 EST 2008 
+Changes in v2.04 - leto 
+Sat Feb 23 20:59:08 EST 2008 
 ---------------------------
-    * now using Module::Build 
-    * new concatenation operator ".", i.e $c = $a . $b concatenates two matrices side-by-side
+    * fixed pod errors
+    * $a->length does row+col vectors now
+    * converted all tests except ext1.t to Test::More and added some overall Kwalitee 
+    * fixed error with doing $string = $matrix . "\nStuff\n";
+    * new funcion new_tridiag 
+    * $matrix->min and $matrix->max now return the min/max element of a matrix
+    * new function new_random added which looks like (with default options shown )
+
+    # returns $n x $m matrix of real numbers between 0 and 10
+	new_random($n,$m, { symmetric => 0, tridiag => 0, bounded_by => [0,10], integer => 0 ) 
+
+	new_random($n, %options ) # returns a square matrix
+
+      This have proven to be pretty useful in the unit tests of Math::MatrixReal so I figured 
+      others may want an easy way to generate a random matrix of your own flavor
+
+    * t/rand.t created
+    * t/tridiag.t created
+    * t/stringify.t created
+    * t/minimax.t created
+    * t/positive.t created
+    * t/gsm.t created
+    * t/similar.t created
+
+
+Changes in v2.03 - leto 
+Sun Jan 27 13:19:55 EST 2008 
+---------------------------
+    * now using Module::Build, so Math::MatrixReal should in theory be able to
+      compile on systems without make, please test and let me know!
+    * new concatenation operator ".", i.e $c = $a . $b concatenates two
+      matrices side-by-side
+    * t/concat.t created
     * new function assign_row
-    * beginning of a test suite overhaul (converting to Test::More/Simple)
+    * beginning of a test suite overhaul (converting to Test::More )
 
 Changes in v2.02 - leto
 Sat Jun 09 12:29:08 EDT 2007 
