@@ -15,7 +15,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '2.04';
+$VERSION = '2.05';
 
 use overload
      '.'   => '_concat',
@@ -49,6 +49,43 @@ use overload
       '""' => '_stringify',
 'fallback' =>   undef;
 
+=head1 NAME
+
+Math::MatrixReal - Matrix of Reals
+
+Implements the data type "matrix of real numbers" (and consequently also
+"vector of real numbers").
+
+=head1 SYNOPSIS
+
+my $a = Math::MatrixReal->new_random(5, 5);
+
+my $b = $a->new_random(10, 30, { symmetric=>1, bounded_by=>[-1,1] });
+
+my $c = $b * $a ** 3;
+
+my $d = $b->new_from_rows( [ [ 5, 3 ,4], [3, 4, 5], [ 2, 4, 1 ] ] );
+
+print $a;
+
+my $row        = ($a * $b)->row(3);
+
+my $col        = (5*$c)->col(2);
+
+my $transpose  = ~$c;
+
+my $transpose  = $c->transpose;
+
+my $inverse    = $a->inverse; 
+
+my $inverse    = 1/$a;
+
+my $inverse    = $a ** -1;
+
+my $determinant= $a->det;
+
+=cut
+
 sub new
 {
     croak "Usage: \$new_matrix = Math::MatrixReal->new(\$rows,\$columns);" if (@_ != 3);
@@ -64,34 +101,28 @@ sub new
 
     my $this = [ [ ], $rows, $cols ];
 
-    # Creates first empty row
+    # Create the first empty row and pre-lengthen 
     my $empty = [ ];
-    $#$empty = $cols - 1;               # pre-lengthens the array
-   
+    $#$empty = $cols - 1;          
+
     map { $empty->[$_] = 0.0 } ( 0 .. $cols-1 );
 
-    $this->[0][0] = $empty;
+    # Create a row at a time
+    map { $this->[0][$_] = [ @$empty ] } ( 0 .. $rows-1);
 
-    # Creates other rows (by copying)
-    for (my $i = 1; $i < $rows; $i++)
-    {
-        my $arow = [ ];
-        @$arow = @$empty;
-        $this->[0][$i] = $arow;
-    }
     bless $this, $class;
 }
 
 sub new_diag {
     croak "Usage: \$new_matrix = Math::MatrixReal->new_diag( [ 1, 2, 3] );" unless (@_ == 2 );
     my ($self,$diag) = @_;
-    my $matrix;
     my $n = scalar @$diag;
 
     croak "Math::MatrixReal::new_diag(): Third argument must be an arrayref" unless (ref($diag) eq "ARRAY");
 
-    $matrix = Math::MatrixReal->new($n,$n);
-    $matrix = $matrix->each_diag( sub { shift @$diag } );
+    my $matrix = Math::MatrixReal->new($n,$n);
+
+    map { $matrix->[0][$_][$_] = shift @$diag } ( 0 .. $n-1);
     return $matrix;
 }
 sub new_tridiag {
@@ -324,6 +355,30 @@ sub shadow
     return $matrix->new($matrix->[1],$matrix->[2]);
 }
 
+=over 4
+
+=item * $matrix->display_precision($integer)
+
+Sets the default precision when matrices are printed or stringified.
+$matrix->display_precision(0) will only show the integer part of all the
+entries of $matrix and $matrix->display_precision() will return to the default
+scientific display notation. This method does not effect the precision of the
+calculations.
+
+=back
+
+=cut 
+
+sub display_precision 
+{
+    my ($self,$n) = @_;
+    if (defined $n) { 
+        croak "Usage: \$matrix->display_precision(\$nonnegative_integer);" if ($n < 0);
+        $self->[4] = int $n;
+    } else {
+        $self->[4] = undef;
+    }
+}
 
 sub copy
 {
@@ -505,10 +560,11 @@ sub cofactor {
         unless ($rows == $cols);
 
     # black magic ahead
-    my $cofactor = $matrix->each( sub { my($v,$i,$j) = @_;
-        ($i+$j) % 2 == 0 ? $matrix->minor($i,$j)->det()
-        : -1*$matrix->minor($i,$j)->det(); 
-        } );
+    my $cofactor = $matrix->each( 
+        sub { 
+            my($v,$i,$j) = @_;
+            ($i+$j) % 2 == 0 ? $matrix->minor($i,$j)->det() : -1*$matrix->minor($i,$j)->det(); 
+        });
     return ($cofactor);
 }
 
@@ -516,6 +572,7 @@ sub adjoint {
     my ($matrix) = @_;
     return ~($matrix->cofactor);
 }
+
 sub row
 {
     croak "Usage: \$row_vector = \$matrix->row(\$row);"
@@ -538,23 +595,22 @@ sub row
 sub col{ return (shift)->column(shift) }
 sub column
 {
-    croak "Usage: \$column_vector = \$matrix->column(\$column);"
-      if (@_ != 2);
+    croak "Usage: \$column_vector = \$matrix->column(\$column);" if (@_ != 2);
 
     my($matrix,$col) = @_;
     my($rows,$cols) = ($matrix->[1],$matrix->[2]);
-    my($temp);
-    my($i);
+    #my($temp);
+    #my($i);
+    my $col_vector;
 
     croak "Math::MatrixReal::column(): column index out of range" if ($col < 1 || $col > $cols);
 
     $col--;
-    $temp = $matrix->new($rows,1);
-    for ( $i = 0; $i < $rows; $i++ )
-    {
-        $temp->[0][$i][0] = $matrix->[0][$i][$col];
-    }
-    return($temp);
+    $col_vector = $matrix->new($rows,1);
+
+    map { $col_vector->[0][$_][0] = $matrix->[0][$_][$col] } (0 .. $rows-1);
+
+    return $col_vector;
 }
 
 sub _undo_LR
@@ -2672,11 +2728,9 @@ sub _concat
 }
 sub _negate
 {
-    my($object,$argument,$flag) = @_;
-#   my($name) = "neg"; 
-    my($temp);
+    my($object) = @_;
 
-    $temp = $object->new($object->[1],$object->[2]);
+    my $temp = $object->new($object->[1],$object->[2]);
     $temp->negate($object);
     return($temp);
 }
@@ -2695,12 +2749,6 @@ sub _boolean
     my($rows,$cols) = ($object->[1],$object->[2]);
 
     my $result = 0;
-#    $object->each( sub { 
-#        my ($x,$i,$j)=@_; 
-#        $result = 1 if (defined $object->[0][$i][$j] && $object->[0][$i][$j] != 0); 
-#    } );
-
-#    return $result;
 
     BOOL:
     for ( my $i = 0; $i < $rows; $i++ )
@@ -2719,16 +2767,14 @@ sub _boolean
 #TODO: ugly copy+paste
 sub _not_boolean
 {
-    my($object,$argument,$flag) = @_;
-#   my($name) = "'!'"; 
-    my($rows,$cols) = ($object->[1],$object->[2]);
-    my($i,$j,$result);
+    my ($object) = @_;
+    my ($rows,$cols) = ($object->[1],$object->[2]);
 
-    $result = 1;
+    my $result = 1;
     NOTBOOL:
-    for ( $i = 0; $i < $rows; $i++ )
+    for ( my $i = 0; $i < $rows; $i++ )
     {
-        for ( $j = 0; $j < $cols; $j++ )
+        for ( my $j = 0; $j < $cols; $j++ )
         {
             if ($object->[0][$i][$j] != 0)
             {
@@ -2742,30 +2788,32 @@ sub _not_boolean
 
 sub _stringify
 {
-    my($object,$argument,$flag) = @_;
-#   my($name) = '""'; 
-    my($rows,$cols) = ($object->[1],$object->[2]);
-    my($i,$j,$s);
+    my ($self) = @_;
+    my ($rows,$cols) = ($self->[1],$self->[2]);
 
-    $s = '';
-    for ( $i = 0; $i < $rows; $i++ )
+    my $precision = $self->[4];
+
+    my $format = !defined $precision ? '% #-19.12E ' : '% #-19.'.$precision.'f ';
+    $format = '% #-12d' if defined $precision && $precision == 0;
+
+    my $s = '';
+    for ( my $i = 0; $i < $rows; $i++ )
     {
         $s .= "[ ";
-        for ( $j = 0; $j < $cols; $j++ )
+        for ( my $j = 0; $j < $cols; $j++ )
         {
-            $s .= sprintf("% #-19.12E ", $object->[0][$i][$j]);
+            $s .= sprintf $format , $self->[0][$i][$j];
         }
         $s .= "]\n";
     }
-    return($s);
+    return $s;
 }
 
 sub _norm
 {
-    my($object,$argument,$flag) = @_;
-#   my($name) = "abs"; 
+    my ($self) = @_;
 
-    return( $object->norm_one() );
+    return $self->norm_one() ;
 }
 
 sub _add
@@ -2825,11 +2873,10 @@ sub _subtract
 
 sub _exponent 
 {
-    my($matrix,$argument,$flag) = @_;
+    my($matrix, $exp) = @_;
     my($rows,$cols) = ($matrix->[1],$matrix->[2]);
-    my($name) = "'**'"; 
 
-    return $matrix->exponent( $argument );
+    return $matrix->exponent( $exp );
 }
 sub _divide
 {
@@ -2926,30 +2973,27 @@ sub _multiply
 
 sub _assign_add
 {
-    my($object,$argument,$flag) = @_;
-#   my($name) = "'+='"; 
+    my($object,$argument) = @_;
 
     return( &_add($object,$argument,undef) );
 }
 
 sub _assign_subtract
 {
-    my($object,$argument,$flag) = @_;
-#   my($name) = "'-='"; 
+    my($object,$argument) = @_;
 
     return( &_subtract($object,$argument,undef) );
 }
 
 sub _assign_multiply
 {
-    my($object,$argument,$flag) = @_;
-#   my($name) = "'*='"; 
+    my($object,$argument) = @_;
 
     return( &_multiply($object,$argument,undef) );
 }
 
 sub _assign_exponent {
-    my($object,$arg,$flag) = @_;
+    my($object,$arg) = @_;
     return ( &_exponent($object,$arg,undef) );
 }
 
@@ -3132,37 +3176,8 @@ sub _clone
 42;
 __END__
 
-=head1 NAME
 
-Math::MatrixReal - Matrix of Reals
-
-Implements the data type "matrix of reals" (and consequently also
-"vector of reals").
-
-=head1 DESCRIPTION
-
-Implements the data type "matrix of reals", which can be used almost
-like any other basic Perl type thanks to B<OPERATOR OVERLOADING>, i.e.,
-
-  $product = $matrix1 * $matrix2;
-
-does what you would like it to do (a matrix multiplication).
-
-Also features many important operations and methods: matrix norm,
-matrix transposition, matrix inverse, determinant of a matrix, order
-and numerical condition of a matrix, scalar product of vectors, vector
-product of vectors, vector length, projection of row and column vectors,
-a comfortable way for reading in a matrix from a file, the keyboard or
-your code, and many more.
-
-Allows to solve linear equation systems using an efficient algorithm
-known as "L-R-decomposition" and several approximative (iterative) methods.
-
-Features an implementation of Kleene's algorithm to compute the minimal
-costs for all paths in a graph with weighted edges (the "weights" being
-the costs associated with each edge).
-
-=head1 SYNOPSIS
+=head1 FUNCTIONS
 
 =head2 Constructor Methods And Such
 
@@ -3248,10 +3263,10 @@ are { integer => 0, symmetric => 0, tridiagonal => 0, diagonal => 0, bounded_by 
 
  Example: 
 
-    $matrix = Math::MatrixReal->new_random(4, 4, { diagonal => 1, integer => 1 }  );
+    $matrix = Math::MatrixReal->new_random(4, { diagonal => 1, integer => 1 }  );
     print $matrix;
 
-will print a random diagonal matrix with integer entries between zero and ten, something like
+will print a 4x4 random diagonal matrix with integer entries between zero and ten, something like
 
     [  5.000000000000E+00  0.000000000000E+00  0.000000000000E+00  0.000000000000E+00 ]
     [  0.000000000000E+00  2.000000000000E+00  0.000000000000E+00  0.000000000000E+00 ]
@@ -5098,8 +5113,8 @@ Converts the given matrix into a string.
 Uses scientific representation to keep precision loss to a minimum in case
 you want to read this string back in again later with "new_from_string()".
 
-Uses a 13-digit mantissa and a 20-character field for each element so that
-lines will wrap nicely on an 80-column screen.
+By default a 13-digit mantissa and a 20-character field for each element is used
+so that lines will wrap nicely on an 80-column screen. 
 
 Examples:
 
@@ -5314,10 +5329,12 @@ Set::IntegerRange, Set::IntegerFast .
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 2.04.
+This man page documents Math::MatrixReal version 2.05.
 
-The latest version can always be found at
-http://leto.net/code/Math-MatrixReal/
+The latest released version can always be found at
+http://leto.net/code/Math-MatrixReal/ and there is also a 
+subversion repository available at
+http://leto.net/svn/Math-MatrixReal/ .
 
 =head1 AUTHORS
 

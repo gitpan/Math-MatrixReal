@@ -1,12 +1,13 @@
 Build.PL
 CHANGES
 CREDITS
+example/bench.pl
+example/bench_mult.pl
+example/bench_new_diag.pl
 funcs.pl
 GOALS
-Kleene.html
 Kleene.pod
 lib/Math/MatrixReal.pm
-Makefile.PL
 MANIFEST
 META.yml
 README
@@ -14,7 +15,6 @@ t/adjoint.t
 t/arith.t
 t/assign.t
 t/basic.t
-t/bench
 t/bench_eigen.t
 t/bench_eigen2.t
 t/binary.t
@@ -48,6 +48,7 @@ t/normality.t
 t/orthogonal.t
 t/periodic.t
 t/positive.t
+t/display_precision.t
 t/product.t
 t/quadratic.t
 t/rand.t
@@ -65,3 +66,4 @@ t/tridiag.t
 t/vecnorm.t
 t/yacas.t
 TODO
+Makefile.PL
