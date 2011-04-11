@@ -1,6 +1,6 @@
 #  Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
 #  Copyright (c) 1999 by Rodolphe Ortalo. All rights reserved.
-#  Copyright (c) 2001-2008 by Jonathan Leto. All rights reserved.
+#  Copyright (c) 2001-2011 by Jonathan Leto. All rights reserved.
 #  This package is free software; you can redistribute it and/or
 #  modify it under the same terms as Perl itself.
 
@@ -8,6 +8,8 @@ package Math::MatrixReal;
 
 use strict;
 use Carp;
+use Data::Dumper;
+use Scalar::Util qw/reftype/;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
 require Exporter;
 
@@ -15,7 +17,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '2.05';
+$VERSION = '2.08';
 
 use overload
      '.'   => '_concat',
@@ -163,7 +165,7 @@ sub new_random {
         if ($rows != $cols and $options->{symmetric} );
 
     croak "Math::MatrixReal::new_random(): number of rows must be integer > 0" 
-    	unless ($rows > 0 and  $rows == int($rows) ) && ($cols > 0 and $cols == int($cols) ) ;
+        unless ($rows > 0 and  $rows == int($rows) ) && ($cols > 0 and $cols == int($cols) ) ;
 
     croak "Math::MatrixReal::new_random(): bounded_by interval length must be > 0" 
         unless (defined $min && defined $max && $min < $max );
@@ -182,8 +184,8 @@ sub new_random {
     $options->{symmetric} ? 0.5*($matrix + ~$matrix) : $matrix;
 }
 	
-sub new_from_string
-{
+sub new_from_string#{{{
+{#{{{
     croak "Usage: \$new_matrix = Math::MatrixReal->new_from_string(\$string);"
       if (@_ != 2);
 
@@ -208,8 +210,10 @@ sub new_from_string
 			$rows++; 
 	} 
 	if ($string !~ m/^\s*$/) {
-		print "Math::MatrixReal::new_from_string(): syntax error in input string";
-		print "String is\n$string\n---\n"; croak; } 
+        chomp $string;
+        my $error_msg = "Math::MatrixReal::new_from_string(): syntax error in input string: $string";
+        croak $error_msg;
+    }
 		if ($rows == 0) { croak "Math::MatrixReal::new_from_string(): empty input string"; } 
 		if ($warn) { warn "Math::MatrixReal::new_from_string(): missing elements will be set to zero!\n"; } 
 		$this = Math::MatrixReal::new($class,$rows,$cols); 
@@ -219,7 +223,7 @@ sub new_from_string
 			}
 		} 
 		return $this; 
-}
+}#}}}#}}}
 
 # from Math::MatrixReal::Ext1 (msouth@fulcrum.org)
 sub new_from_cols { 
@@ -257,7 +261,7 @@ sub _new_from_rows_or_cols {
     # step back one frame because this private method is  not how the user called it
     my $caller_subname = (caller(1))[3];
 
-    croak "$caller_subname: need a reference to an array of ${vector_type}s" unless ref($ref_to_vectors) eq 'ARRAY';
+    croak "$caller_subname: need a reference to an array of ${vector_type}s" unless reftype($ref_to_vectors) eq 'ARRAY';
 
     my @vectors = @{$ref_to_vectors};
     my $matrix;
@@ -291,7 +295,10 @@ sub _new_from_rows_or_cols {
             } else {
                 $current_vector = $class->new_from_string( '[ '. join( " ]\n[ ", @array) ." ]\n" );
             }
-        } elsif ( $ref ne 'HASH' and $current_vector->isa('Math::MatrixReal') ) {
+        } elsif ( $ref ne 'HASH' and 
+                ( $current_vector->isa('Math::MatrixReal') || 
+                  $current_vector->isa('Math::MatrixComplex')
+                ) ) {
             # it's already a Math::MatrixReal something.
             # we don't need to do anything, it will all
             # work out
@@ -433,7 +440,22 @@ sub trace {
 
     return $trace;
 }
+sub submatrix {
+    my $self = shift;
+    my ($x1, $y1, $x2, $y2) = @_;
+    croak "Math::MatrixReal::submatrix(): indices must be positive integers"
+        unless ($x1 >= 1 && $x2 >= 1 && $y1 >=1 && $y2 >=1 );
+    my($rows,$cols) = ($self->[1],$self->[2]);
+    my($sr,$sc)     = ( 1+abs($x1-$x2), 1+abs($y1-$y2) );
+    my $submatrix = $self->new( $sr, $sc );
 
+    for (my $i = $x1-1; $i < $x2; $i++ ) {
+        for (my $j = $y1-1; $j < $y2; $j++ ) {
+            $submatrix->[0][$i-($x1-1)][$j-($y1-1)] = $self->[0][$i][$j];
+        }
+    }
+    return $submatrix;
+}
 ## return the minor corresponding to $r and $c
 ## eliminate row $r and col $c , and return the $r-1 by $c-1 matrix
 sub minor {
@@ -1348,6 +1370,7 @@ sub invert_LR
       unless ((defined $matrix->[3]) && ($rows == $cols));
 
     $n = $rows;
+    #print Dumper [ $matrix ];
     if ($matrix->[0][$n-1][$n-1] != 0)
     {
         $inv_matrix = $matrix->new($n,$n);
@@ -1370,7 +1393,10 @@ sub invert_LR
             }
         }
         return($inv_matrix);
-    } else { return; } # matrix is not invertible!
+    } else {   
+        warn __PACKAGE__ . qq{: matrix not invertible\n};
+        return; 
+    } 
 }
 
 sub condition
@@ -2820,14 +2846,13 @@ sub _add
 {
     my($object,$argument,$flag) = @_;
     my($name) = "'+'"; 
-    my($temp);
 
     if ((defined $argument) && ref($argument) &&
         (ref($argument) !~ /^SCALAR$|^ARRAY$|^HASH$|^CODE$|^REF$/))
     {
         if (defined $flag)
         {
-            $temp = $object->new($object->[1],$object->[2]);
+            my $temp = $object->new($object->[1],$object->[2]);
             $temp->add($object,$argument);
             return($temp);
         }
@@ -2847,17 +2872,16 @@ sub _subtract
 {
     my($object,$argument,$flag) = @_;
     my($name) = "'-'"; 
-    my($temp);
 
     if ((defined $argument) && ref($argument) &&
         (ref($argument) !~ /^SCALAR$|^ARRAY$|^HASH$|^CODE$|^REF$/))
     {
         if (defined $flag)
         {
-            $temp = $object->new($object->[1],$object->[2]);
+            my $temp = $object->new($object->[1],$object->[2]);
             if ($flag) { $temp->subtract($argument,$object); }
             else       { $temp->subtract($object,$argument); }
-            return($temp);
+            return $temp;
         }
         else
         {
@@ -4270,7 +4294,7 @@ same matrix format.
 
 C<$minimum = Math::MatrixReal::min($number1,$number2);>
 C<$minimum = Math::MatrixReal::min($matrix);>
-C<$minimum = $matrix->min;>
+C<<$minimum = $matrix->min;>>
 
 Returns the minimum of the two numbers "C<number1>" and "C<number2>" if called with two arguments, 
 or returns the value of the smallest element of a matrix if called with one argument or as an object
@@ -4281,7 +4305,7 @@ method.
 C<$maximum = Math::MatrixReal::max($number1,$number2);>
 C<$maximum = Math::MatrixReal::max($number1,$number2);>
 C<$maximum = Math::MatrixReal::max($matrix);>
-C<$maximum = $matrix->max;>
+C<<$maximum = $matrix->max;>>
 
 Returns the maximum of the two numbers "C<number1>" and "C<number2>" if called with two arguments,
 or returns the value of the largest element of a matrix if called with one arguemnt or as on object
@@ -5329,12 +5353,10 @@ Set::IntegerRange, Set::IntegerFast .
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 2.05.
+This man page documents Math::MatrixReal version 2.08.
 
-The latest released version can always be found at
-http://leto.net/code/Math-MatrixReal/ and there is also a 
-subversion repository available at
-http://leto.net/svn/Math-MatrixReal/ .
+The latest code can be found at
+https://github.com/leto/math--matrixreal .
 
 =head1 AUTHORS
 
@@ -5352,7 +5374,7 @@ lectures in Numerical Analysis!
 
 =head1 COPYRIGHT
 
-Copyright (c) 1996-2008 by Steffen Beyer, Rodolphe Ortalo, Jonathan Leto.
+Copyright (c) 1996-2011 by Steffen Beyer, Rodolphe Ortalo, Jonathan Leto.
 All rights reserved.
 
 =head1 LICENSE AGREEMENT

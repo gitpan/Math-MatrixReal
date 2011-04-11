@@ -22,6 +22,7 @@ t/bool.t
 t/cofactor.t
 t/concat.t
 t/condition.t
+t/decompose_LR.t
 t/det.t
 t/diag.t
 t/div.t
@@ -58,6 +59,7 @@ t/similar.t
 t/spectral.t
 t/stringify.t
 t/swap.t
+t/submatrix.t
 t/symmetric.t
 t/trace.t
 t/transpose.t
@@ -67,3 +69,4 @@ t/vecnorm.t
 t/yacas.t
 TODO
 Makefile.PL
+META.json

@@ -1,20 +1,24 @@
 ---
-name: Math-MatrixReal
-version: 2.05
+abstract: 'Manipulate NxN matrices of real numbers'
 author:
   - 'Jonathan Leto <jonathan@leto.net>'
-abstract: Manipulate NxN matrices of real numbers
-license: perl
-resources:
-  license: http://dev.perl.org/licenses/
 build_requires:
   File::Spec: 0
   Test::More: 0
+configure_requires:
+  Module::Build: 0.38
+dynamic_config: 1
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.110580'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Math-MatrixReal
 provides:
   Math::MatrixReal:
     file: lib/Math/MatrixReal.pm
-    version: 2.05
-generated_by: Module::Build version 0.280801
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+    version: 2.08
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: http://github.com/leto/math--matrixreal/tree/master
+version: 2.08
