@@ -10,9 +10,10 @@ my $builder = Module::Build->new(
     dist_abstract     => 'Manipulate NxN matrices of real numbers',
     license           => 'perl',
     build_requires => {
-        'Test::More' => 0,
+        'Test::Most' => 0,
         'File::Spec' => 0,
     },
+    configure_requires => { 'Module::Build' => 0.38 },
     add_to_cleanup      => [ 'Math::MatrixReal-*' ],
     create_makefile_pl => 'traditional',
     meta_merge     => {
@@ -23,3 +24,4 @@ my $builder = Module::Build->new(
 );
 
 $builder->create_build_script();
+print "Have an awesome day!\n";

@@ -6,7 +6,7 @@ WriteMakefile
   'VERSION_FROM' => 'lib/Math/MatrixReal.pm',
   'PREREQ_PM' => {
                    'File::Spec' => 0,
-                   'Test::More' => 0
+                   'Test::Most' => 0
                  },
   'INSTALLDIRS' => 'site',
   'EXE_FILES' => [],

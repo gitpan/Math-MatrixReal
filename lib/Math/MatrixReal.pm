@@ -7,6 +7,7 @@
 package Math::MatrixReal;
 
 use strict;
+use warnings;
 use Carp;
 use Data::Dumper;
 use Scalar::Util qw/reftype/;
@@ -17,7 +18,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '2.08';
+$VERSION = '2.09';
 
 use overload
      '.'   => '_concat',
@@ -2666,23 +2667,22 @@ sub as_yacas{
 
     return $s;
 }
-#TODO: any ideas for a good test?
+
 sub as_latex{
     my ($m) = shift;
-    my %args = ( 
-        format => "%s",
-        name => "",
-        align => "c",
-        @_);
+    my %args = (
+        format       => "%s",
+        name         => "",
+        align        => "c",
+        display_math => 0,
+    @_);
 
 
     my ($row,$col) = $m->dim;
     my $inside;
     my $s = <<LATEX;
-\$
 \\left( \\begin{array}{%COLS%}
 %INSIDE%\\end{array} \\right)
-\$
 LATEX
     $args{align} = lc $args{align};
     if( $args{align} !~ m/^(c|l|r)$/ ){
@@ -2692,11 +2692,11 @@ LATEX
     $s =~ s/%COLS%/$args{align} x $col/em;
 
     if( $args{name} ){
-        $s = "\$$args{name} = \$ " . $s;
+        $s = "$args{name} = $s";
     }
-    $m->each( 
-        ub { my($x,$i,$j)=@_;
-
+    $m->each(
+        sub {
+            my ($x,$i,$j) = @_;
             $x = sprintf($args{format},$x);
 
             # last element in each row gets a \\
@@ -2710,6 +2710,11 @@ LATEX
             }
         } 
     );
+    if($args{displaymath}){
+            $s = "\\[$s\\]";
+    } else {
+            $s = "\$$s\$";
+    }
     $s =~ s/%INSIDE%/$inside/gm;
     return $s;
 }
@@ -3197,7 +3202,7 @@ sub _clone
     $temp->_undo_LR();
     return $temp;
 }
-42;
+{ no warnings; 42 }
 __END__
 
 
@@ -5353,7 +5358,7 @@ Set::IntegerRange, Set::IntegerFast .
 
 =head1 VERSION
 
-This man page documents Math::MatrixReal version 2.08.
+This man page documents Math::MatrixReal version 2.09
 
 The latest code can be found at
 https://github.com/leto/math--matrixreal .
@@ -5361,9 +5366,9 @@ https://github.com/leto/math--matrixreal .
 =head1 AUTHORS
 
 Steffen Beyer <sb@engelschall.com>, Rodolphe Ortalo <ortalo@laas.fr>,
-Jonathan Leto <jonathan@leto.net>.
+Jonathan "Duke" Leto <jonathan@leto.net>.
 
-Currently maintained by Jonathan Leto, send all bugs/patches to me.
+Currently maintained by Jonathan "Duke" Leto, send all bugs/patches to me.
 
 =head1 CREDITS
 
@@ -5374,7 +5379,7 @@ lectures in Numerical Analysis!
 
 =head1 COPYRIGHT
 
-Copyright (c) 1996-2011 by Steffen Beyer, Rodolphe Ortalo, Jonathan Leto.
+Copyright (c) 1996-2011 by Steffen Beyer, Rodolphe Ortalo, Jonathan "Duke" Leto.
 All rights reserved.
 
 =head1 LICENSE AGREEMENT
