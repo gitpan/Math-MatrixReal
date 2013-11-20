@@ -8,7 +8,7 @@ build_requires:
 configure_requires:
   Module::Build: 0.38
 dynamic_config: 1
-generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112150'
+generated_by: 'Module::Build version 0.4003, CPAN::Meta::Converter version 2.120921'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -17,8 +17,8 @@ name: Math-MatrixReal
 provides:
   Math::MatrixReal:
     file: lib/Math/MatrixReal.pm
-    version: 2.09
+    version: 2.10
 resources:
   license: http://dev.perl.org/licenses/
   repository: http://github.com/leto/math--matrixreal/tree/master
-version: 2.09
+version: 2.10

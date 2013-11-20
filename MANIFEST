@@ -1,3 +1,4 @@
+.travis.yml
 Build.PL
 CHANGES
 CREDITS
@@ -8,10 +9,7 @@ funcs.pl
 GOALS
 Kleene.pod
 lib/Math/MatrixReal.pm
-Makefile.PL
 MANIFEST			This list of files
-META.json
-META.yml
 OLD_README
 README.mkd
 t/00-load.t
@@ -72,3 +70,6 @@ t/tridiag.t
 t/vecnorm.t
 t/yacas.t
 TODO
+Makefile.PL
+META.yml
+META.json

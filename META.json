@@ -4,7 +4,7 @@
       "Jonathan Leto <jonathan@leto.net>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.112150",
+   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.120921",
    "license" : [
       "perl_5"
    ],
@@ -16,8 +16,8 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "File::Spec" : 0,
-            "Test::Most" : 0
+            "File::Spec" : "0",
+            "Test::Most" : "0"
          }
       },
       "configure" : {
@@ -29,7 +29,7 @@
    "provides" : {
       "Math::MatrixReal" : {
          "file" : "lib/Math/MatrixReal.pm",
-         "version" : "2.09"
+         "version" : "2.10"
       }
    },
    "release_status" : "stable",
@@ -41,5 +41,5 @@
          "url" : "http://github.com/leto/math--matrixreal/tree/master"
       }
    },
-   "version" : "2.09"
+   "version" : "2.10"
 }
