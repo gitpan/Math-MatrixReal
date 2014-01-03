@@ -18,7 +18,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '2.10';
+$VERSION = '2.11';
 
 use overload
      '.'   => '_concat',
@@ -245,6 +245,19 @@ sub new_from_rows {
     $extra_args->{_type} = 'row';
 
     $self->_new_from_rows_or_cols(@_, $extra_args );
+}
+
+sub reshape {
+    my ($self, $rows, $cols, $values) = @_;
+
+    my @cols = ();
+    my $p = 0;
+    for my $c (1..$cols) {
+        push @cols, [@{$values}[$p .. $p + $rows - 1]];
+        $p += $rows;
+    }
+
+    return $self->new_from_cols( \@cols );
 }
 
 # from Math::MatrixReal::Ext1 (msouth@fulcrum.org)
@@ -2728,6 +2741,79 @@ sub spectral_radius
     $ev->each(sub { my $x = shift; $radius = $x if (abs($x) > $radius); } );
     return $radius;
 }
+
+sub maximum {
+	my ($matrix) = @_;
+	my ($rows, $columns) = $matrix->dim;
+
+	my $max = [];
+	my $max_p = [];
+
+	if ($rows == 1) {
+		($max, $max_p) = _max_column($matrix->row(1)->_transpose, $columns);
+	} elsif ($columns == 1) { 	
+		($max, $max_p) = _max_column($matrix->column(1), $rows);
+	} else {
+		for my $c (1..$columns) {
+			my ($m, $mp) = _max_column($matrix->column($c), $rows);
+			push @$max, $m;
+			push @$max_p, $mp;
+		}
+	}
+	return wantarray ? ($max, $max_p) : $max
+}
+
+sub _max_column {
+	# passing $rows allows for some extra (minimal) efficiency
+	my ($column, $rows) = @_;
+
+	my ($m, $mp) = ($column->element(1, 1), 1);
+	for my $l (1..$rows) {
+		if ($column->element($l, 1) > $m) {
+			$m = $column->element($l, 1);
+			$mp = $l;
+		}
+	}
+	return ($m, $mp);
+}
+
+sub minimum {
+	my ($matrix) = @_;
+	my ($rows, $columns) = $matrix->dim;
+
+	my $min = [];
+	my $min_p = [];
+
+	if ($rows == 1) {
+		($min, $min_p) = _min_column($matrix->row(1)->_transpose, $columns);
+	} elsif ($columns == 1) { 	
+		($min, $min_p) = _min_column($matrix->column(1), $rows);
+	} else {
+		for my $c (1..$columns) {
+			my ($m, $mp) = _min_column($matrix->column($c), $rows);
+			push @$min, $m;
+			push @$min_p, $mp;
+		}
+	}
+	return wantarray ? ($min, $min_p) : $min
+}
+
+sub _min_column {
+	# passing $rows allows for some extra (minimal) efficiency
+	my ($column, $rows) = @_;
+
+	my ($m, $mp) = ($column->element(1, 1), 1);
+	for my $l (1..$rows) {
+		if ($column->element($l, 1) < $m) {
+			$m = $column->element($l, 1);
+			$mp = $l;
+		}
+	}
+	return ($m, $mp);
+}
+
+
+
                 ########################################
                 #                                      #
                 # define overloaded operators section: #
@@ -3483,11 +3569,43 @@ C<$a = $b>, when C<$a> and C<$b> are matrices.
 
 Matrix "C<$some_matrix>" is not changed by this in any way.
 
+=item * $matrix = Math::MatrixReal->reshape($rows, $cols, $array_ref);
+
+Return a matrix with the specified dimensions (C<$rows> x C<$cols>)  whose
+elements are taken from the array reference C<$array_ref>.  The elements of
+the matrix are accessed in column-major order (like Fortran arrays are
+stored).
+
+     $matrix = Math::MatrixReal->reshape(4, 3, [1..12]);
+
+Creates the following matrix:
+
+    [ 1    5    9 ]
+    [ 2    6   10 ]
+    [ 3    7   11 ]
+    [ 4    8   12 ]
+
 =back
 
 =head2 Matrix Row, Column and Element operations
 
 =over 4
+
+=item * $value = $matrix-E<gt>element($row,$column);
+
+Returns the value of a specific element of the matrix "C<$matrix>",
+located in row "C<$row>" and column "C<$column>".
+
+B<NOTE:> Unlike Perl, matrices are indexed with base-one indexes. Thus, the
+first element of the matrix is placed in the B<first> line, B<first> column:
+
+    $elem = $matrix->element(1, 1); # first element of the matrix.
+    
+=item * $matrix-E<gt>assign($row,$column,$value);
+
+Explicitly assigns a value "C<$value>" to a single element of the
+matrix "C<$matrix>", located in row "C<$row>" and column "C<$column>",
+thereby replacing the value previously stored there.
 
 =item * $row_vector = $matrix-E<gt>row($row);
 
@@ -3506,17 +3624,6 @@ only one column) to which column number "C<$column>" of matrix
 "C<$matrix>" has already been copied.
 
 Matrix "C<$matrix>" is not changed by this in any way.
-
-=item * $matrix-E<gt>assign($row,$column,$value);
-
-Explicitly assigns a value "C<$value>" to a single element of the
-matrix "C<$matrix>", located in row "C<$row>" and column "C<$column>",
-thereby replacing the value previously stored there.
-
-=item * $value = $matrix-E<gt>element($row,$column);
-
-Returns the value of a specific element of the matrix "C<$matrix>",
-located in row "C<$row>" and column "C<$column>".
 
 =item * $new_matrix = $matrix-E<gt>each( \&function );
 
@@ -3565,9 +3672,44 @@ C<$matrix-E<gt>swap_row(2,3)> would replace row 2 in $matrix with row 3, and rep
 
 =item * $matrix-E<gt>assign_row( $row_number , $new_row_vector );
 
-This method takes a one-based row number and assigns row $row_number of $matrix 
+This method takes a one-based row number and assigns row $row_number of $matrix
 with $new_row_vector and returns the resulting matrix.
-C<$matrix-E<gt>assign_row(5, $x)> would replace row 2 in $matrix with the row vector $x.
+C<$matrix-E<gt>assign_row(5, $x)> would replace row 5 in $matrix with the row vector $x.
+
+=item * $matrix-E<gt>maximum();  and  $matrix-E<gt>minimum();
+
+These two methods work similarly, one for computing the maximum element or
+elements from a matrix, and the minimum element or elements from a matrix.
+They work in a similar way as Octave/MatLab max/min functions.
+
+When computing the maximum or minimum from a vector (vertical or horizontal),
+only one element is returned. When  computing the maximum or minimum from a
+matrix, the maximum/minimum element for each column is returned in an array
+reference.
+
+When called in list context, the function returns a pair, where the first
+element is the maximum/minimum element (or elements) and the second is the
+position of that value in the vector (first occurrence), or the row where it
+occurs, for matrices.
+
+Consider the matrix and vector below for the following examples:
+
+           [ 1 9 4 ] 
+      $A = [ 3 5 2 ]       $B = [ 8 7 9 5 3 ]
+           [ 8 7 6 ]
+
+When used in scalar context:
+
+    $max = $A->maximum();    # $max = [ 8, 9, 6 ]
+    $min = $B->minimum();    # $min = 3
+
+When used in list context:
+
+    ($min, $pos) = $A->minimum(); # $min = [ 1 5 2 ]
+                                  # $pos = [ 1 2 2 ]
+    ($max, $pos) = $B->maximum(); # $max = 9
+                                  # $pos = 3
+
 
 =back
 

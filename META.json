@@ -29,7 +29,7 @@
    "provides" : {
       "Math::MatrixReal" : {
          "file" : "lib/Math/MatrixReal.pm",
-         "version" : "2.10"
+         "version" : "2.11"
       }
    },
    "release_status" : "stable",
@@ -41,5 +41,5 @@
          "url" : "http://github.com/leto/math--matrixreal/tree/master"
       }
    },
-   "version" : "2.10"
+   "version" : "2.11"
 }

@@ -17,8 +17,8 @@ name: Math-MatrixReal
 provides:
   Math::MatrixReal:
     file: lib/Math/MatrixReal.pm
-    version: 2.10
+    version: 2.11
 resources:
   license: http://dev.perl.org/licenses/
   repository: http://github.com/leto/math--matrixreal/tree/master
-version: 2.10
+version: 2.11
