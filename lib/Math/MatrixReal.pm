@@ -1,6 +1,6 @@
 #  Copyright (c) 1996, 1997 by Steffen Beyer. All rights reserved.
 #  Copyright (c) 1999 by Rodolphe Ortalo. All rights reserved.
-#  Copyright (c) 2001-2011 by Jonathan Leto. All rights reserved.
+#  Copyright (c) 2001-2015 by Jonathan Leto. All rights reserved.
 #  This package is free software; you can redistribute it and/or
 #  modify it under the same terms as Perl itself.
 
@@ -18,7 +18,7 @@ require Exporter;
 @EXPORT = qw();
 @EXPORT_OK = qw(min max);
 %EXPORT_TAGS = (all => [@EXPORT_OK]);
-$VERSION = '2.11';
+$VERSION = '2.12';
 
 use overload
      '.'   => '_concat',
@@ -647,6 +647,21 @@ sub column
     map { $col_vector->[0][$_][0] = $matrix->[0][$_][$col] } (0 .. $rows-1);
 
     return $col_vector;
+}
+
+sub as_list
+{
+    croak "Usage: \$matrix->as_list();" if (@_ != 1);
+
+    my($self) = @_;
+    my($rows,$cols) = ($self->[1], $self->[2]);
+    my @list;
+    for(my $i = 0; $i < $rows; $i++ ){
+        for(my $j = 0; $j < $rows; $j++){
+            push @list, $self->[0][$i][$j];
+        }
+    }
+    return @list;
 }
 
 sub _undo_LR
@@ -3625,6 +3640,15 @@ only one column) to which column number "C<$column>" of matrix
 
 Matrix "C<$matrix>" is not changed by this in any way.
 
+=item * @all_elements = $matrix-E<gt>as_list;
+
+Get the contents of a Math::MatrixReal object as a Perl list.
+
+Example:
+
+   my $matrix = Math::MatrixReal->new_from_rows([ [1, 2], [3, 4] ]);
+   my @list = $matrix->as_list; # 1, 2, 3, 4
+
 =item * $new_matrix = $matrix-E<gt>each( \&function );
 
 Creates a new matrix by evaluating a code reference on each element of the 
@@ -5510,7 +5534,8 @@ https://github.com/leto/math--matrixreal .
 Steffen Beyer <sb@engelschall.com>, Rodolphe Ortalo <ortalo@laas.fr>,
 Jonathan "Duke" Leto <jonathan@leto.net>.
 
-Currently maintained by Jonathan "Duke" Leto, send all bugs/patches to me.
+Currently maintained by Jonathan "Duke" Leto, send all bugs/patches
+to Github Issues: https://github.com/leto/math--matrixreal/issues
 
 =head1 CREDITS
 
@@ -5521,11 +5546,11 @@ lectures in Numerical Analysis!
 
 =head1 COPYRIGHT
 
-Copyright (c) 1996-2011 by Steffen Beyer, Rodolphe Ortalo, Jonathan "Duke" Leto.
-All rights reserved.
+Copyright (c) 1996-2015 by various authors including the original developer
+Steffen Beyer, Rodolphe Ortalo, the current maintainer Jonathan "Duke" Leto and
+all the wonderful people in the AUTHORS file. All rights reserved.
 
 =head1 LICENSE AGREEMENT
 
 This package is free software; you can redistribute it and/or
-modify it under the same terms as Perl itself.
-
+modify it under the same terms as Perl itself. Fuck yeah.

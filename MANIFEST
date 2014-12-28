@@ -9,7 +9,10 @@ funcs.pl
 GOALS
 Kleene.pod
 lib/Math/MatrixReal.pm
+Makefile.PL
 MANIFEST			This list of files
+META.json
+META.yml
 OLD_README
 README.mkd
 t/00-load.t
@@ -44,7 +47,9 @@ t/is_LR.t
 t/isrowcol.t
 t/latex.t
 t/length.t
+t/list.t
 t/matlab.t
+t/max_min.t
 t/minimax.t
 t/minor.t
 t/norm.t
@@ -70,6 +75,3 @@ t/tridiag.t
 t/vecnorm.t
 t/yacas.t
 TODO
-Makefile.PL
-META.yml
-META.json
